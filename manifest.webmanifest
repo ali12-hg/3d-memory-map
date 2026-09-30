@@ -1,9 +1,9 @@
 {
-  "name":"MemoryMap Studio",
+  "name": "MemoryMap Studio V8 Pro Max",
   "short_name":"MemoryMap",
   "start_url":"/",
   "display":"standalone",
   "background_color":"#0e0e0e",
   "theme_color":"#111111",
-  "description":"Generate printable 3D memory maps from places."
+  "description": "Generate pro printable 3D memory maps with white buildings and black roads."
 }
