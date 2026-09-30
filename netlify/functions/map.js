@@ -1,4 +1,4 @@
-const UA = "3DMemoryMapV6/1.0";
+const UA = "MemoryMapV8/1.0";
 
 async function fetchJson(url, options = {}, timeoutMs = 30000) {
   const ctrl = new AbortController();
