@@ -3,198 +3,217 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#101010">
-<title>3D Memory Map V6</title>
+<meta name="theme-color" content="#111111">
+<link rel="manifest" href="/manifest.webmanifest">
+<title>MemoryMap Studio</title>
 <style>
-:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+:root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:#0e0e0e;color:#f7f7f7}
-.wrap{max-width:820px;margin:auto;padding:16px}
-.card{background:#1a1a1a;border:1px solid #363636;border-radius:20px;padding:16px;margin-bottom:14px}
-h1{font-size:26px;margin:0 0 6px}
-p{color:#b7b7b7;line-height:1.45}
-label{display:block;font-size:13px;color:#b9b9b9;margin:12px 0 6px}
-input{width:100%;border:1px solid #444;background:#0b0b0b;color:#fff;border-radius:12px;padding:12px;font-size:16px}
+body{margin:0;background:linear-gradient(180deg,#0b0b0c,#131316);color:#f7f7f7}
+.wrap{max-width:960px;margin:auto;padding:18px}
+.hero{padding:8px 2px 16px}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#9b9ba3}
+h1{font-size:30px;margin:6px 0 8px}
+.hero p{margin:0;color:#b8b8bf}
+.card{background:rgba(26,26,30,.96);border:1px solid #35353b;border-radius:22px;padding:16px;margin-bottom:14px;box-shadow:0 10px 35px rgba(0,0,0,.18)}
+.section-title{font-size:15px;font-weight:800;margin:0 0 10px}
+label{display:block;font-size:12px;color:#aaaab2;margin:12px 0 6px}
+input,select{width:100%;border:1px solid #43434a;background:#0d0d10;color:#fff;border-radius:13px;padding:12px;font-size:16px;outline:none}
+input:focus,select:focus{border-color:#7c7c87}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pills{display:flex;gap:8px;overflow:auto;padding-bottom:2px}
+.pill{white-space:nowrap;border:1px solid #3e3e45;background:#232329;color:#eee;border-radius:999px;padding:9px 12px;font-size:13px}
+.pill.active{background:#f3f3f3;color:#111;border-color:#f3f3f3}
 button{width:100%;border:0;border-radius:14px;padding:14px;margin-top:10px;font-size:16px;font-weight:800}
-.primary{background:#fff;color:#111}
-.secondary{background:#292929;color:#fff;border:1px solid #444}
-button:disabled{opacity:.45}
-canvas{width:100%;display:block;background:#fff;border-radius:14px}
-#status{white-space:pre-wrap;background:#090909;border-radius:14px;padding:13px;min-height:110px;color:#ddd}
-.small{font-size:12px;color:#8b8b8b}
-.badge{display:inline-block;padding:6px 10px;border-radius:999px;background:#252525;color:#ccc;font-size:12px}
+.primary{background:#f5f5f5;color:#111}
+.secondary{background:#29292f;color:#fff;border:1px solid #414148}
+button:disabled{opacity:.42}
+.topstatus{display:flex;align-items:center;gap:8px;font-size:13px;color:#aaa}
+.dot{width:9px;height:9px;border-radius:50%;background:#696970}.dot.ok{background:#6bd17f}.dot.bad{background:#e56b6b}
+.progress{height:8px;background:#24242a;border-radius:999px;overflow:hidden;margin-top:12px}
+.progress>div{height:100%;width:0;background:#f4f4f4;transition:width .25s}
+canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
+#status{white-space:pre-wrap;background:#0b0b0e;border-radius:14px;padding:13px;min-height:92px;color:#d7d7da;font-size:14px}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.metric{background:#111116;border:1px solid #303036;border-radius:14px;padding:10px}
+.metric b{display:block;font-size:18px}.metric span{font-size:11px;color:#96969e}
+.history{display:grid;gap:8px}
+.hist{background:#111116;border:1px solid #303036;border-radius:14px;padding:11px;font-size:13px}
+.small{font-size:12px;color:#92929a}
+.hidden{display:none}
+@media(max-width:620px){.row{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr 1fr}}
 </style>
 </head>
 <body>
 <div class="wrap">
-<div class="card">
-<span class="badge">V6 Server‑Side</span>
-<h1>3D Memory Map</h1>
-<p>Phone → our server → map services. No direct browser calls to OSM APIs.</p>
+  <div class="hero">
+    <div class="eyebrow">MemoryMap Studio</div>
+    <h1>Turn a place into a 3D memory.</h1>
+    <p>Generate printable city maps with buildings, roads and a heart marker.</p>
+  </div>
 
-<label>Address / place</label>
-<input id="address" value="Piazza del Duomo, Milano, Italy">
+  <div class="card">
+    <div class="topstatus"><span id="serverDot" class="dot"></span><span id="serverText">Server not tested</span></div>
+    <button class="secondary" id="health">Test server</button>
+  </div>
 
-<label>Title</label>
-<input id="title" value="ALI & SARA">
+  <div class="card">
+    <div class="section-title">1. Memory</div>
+    <div class="pills" id="occasionPills">
+      <button class="pill active" data-title="WHERE IT ALL BEGAN">Where we met</button>
+      <button class="pill" data-title="OUR FIRST HOME">First home</button>
+      <button class="pill" data-title="OUR WEDDING DAY">Wedding</button>
+      <button class="pill" data-title="A PLACE TO REMEMBER">Travel memory</button>
+    </div>
+    <label>Address / place</label>
+    <input id="address" value="Piazza del Duomo, Milano, Italy" autocomplete="street-address">
+    <label>Names / title</label>
+    <input id="title" value="ALI & SARA">
+    <label>Memory line</label>
+    <input id="subtitle" value="WHERE IT ALL BEGAN • MILANO • 14.06.2022">
+  </div>
 
-<label>Subtitle / date</label>
-<input id="subtitle" value="WHERE IT ALL BEGAN • MILANO • 14.06.2022">
+  <div class="card">
+    <div class="section-title">2. Print style</div>
+    <div class="pills" id="stylePills">
+      <button class="pill active" data-style="clean">Clean</button>
+      <button class="pill" data-style="city">City</button>
+      <button class="pill" data-style="detailed">Detailed</button>
+    </div>
+    <div class="row">
+      <div><label>Map size (mm)</label><input id="size" type="number" value="180" min="80" max="300"></div>
+      <div><label>Radius (m)</label><input id="radius" type="number" value="180" min="50" max="400"></div>
+    </div>
+    <div class="row">
+      <div><label>Base (mm)</label><input id="base" type="number" step="0.1" value="3.2"></div>
+      <div><label>Max building (mm)</label><input id="maxh" type="number" step="0.1" value="9"></div>
+    </div>
+    <div class="row">
+      <div><label>Road width (mm)</label><input id="roadw" type="number" step="0.1" value="1.1"></div>
+      <div><label>Road height (mm)</label><input id="roadh" type="number" step="0.1" value="0.55"></div>
+    </div>
+  </div>
 
-<div class="row">
-  <div><label>Map size (mm)</label><input id="size" type="number" value="180"></div>
-  <div><label>Radius (m)</label><input id="radius" type="number" value="180"></div>
-</div>
-<div class="row">
-  <div><label>Base (mm)</label><input id="base" type="number" step="0.1" value="3.2"></div>
-  <div><label>Max building (mm)</label><input id="maxh" type="number" step="0.1" value="9"></div>
-</div>
-<div class="row">
-  <div><label>Road width (mm)</label><input id="roadw" type="number" step="0.1" value="1.1"></div>
-  <div><label>Road height (mm)</label><input id="roadh" type="number" step="0.1" value="0.55"></div>
-</div>
+  <div class="card">
+    <div class="section-title">3. Generate</div>
+    <button class="primary" id="generate">Generate 3D map</button>
+    <div class="progress"><div id="progressBar"></div></div>
+    <div id="status">Ready.</div>
+    <div class="metrics">
+      <div class="metric"><b id="mBuildings">—</b><span>Buildings</span></div>
+      <div class="metric"><b id="mRoads">—</b><span>Road segments</span></div>
+      <div class="metric"><b id="mRadius">—</b><span>Radius</span></div>
+    </div>
+    <button class="secondary" id="download" disabled>Download STL</button>
+    <button class="secondary" id="downloadInfo" disabled>Download order JSON</button>
+  </div>
 
-<button class="secondary" id="health">Test server</button>
-<button class="primary" id="generate">Generate map</button>
-<button class="secondary" id="download" disabled>Download STL</button>
-<button class="secondary" id="downloadInfo" disabled>Download order info</button>
-<p class="small">This version must be deployed with its serverless function. Opening index.html locally is not enough.</p>
-</div>
+  <div class="card">
+    <div class="section-title">Preview</div>
+    <canvas id="preview" width="760" height="760"></canvas>
+    <p class="small">Preview is top-down. Final STL contains raised buildings, roads and the heart marker.</p>
+  </div>
 
-<div class="card"><canvas id="preview" width="760" height="760"></canvas></div>
-<div class="card"><div id="status">Ready.</div></div>
+  <div class="card">
+    <div class="section-title">Recent maps</div>
+    <div id="history" class="history"><div class="small">No maps yet.</div></div>
+  </div>
 </div>
 
 <script>
 const $=id=>document.getElementById(id);
-let currentSTL="", currentInfo=null;
+let currentSTL="",currentInfo=null;
+const storeKey="memorymap_v7_history";
+
 function log(s){$("status").textContent=s}
+function progress(n){$("progressBar").style.width=n+"%"}
+function setServer(ok,text){$("serverDot").className="dot "+(ok?"ok":"bad");$("serverText").textContent=text}
+function saveForm(){
+  const ids=["address","title","subtitle","size","radius","base","maxh","roadw","roadh"];
+  const o={}; ids.forEach(id=>o[id]=$(id).value); localStorage.setItem("memorymap_form",JSON.stringify(o));
+}
+function restoreForm(){
+  try{const o=JSON.parse(localStorage.getItem("memorymap_form")||"{}");Object.keys(o).forEach(k=>{if($(k))$(k).value=o[k]})}catch{}
+}
+["address","title","subtitle","size","radius","base","maxh","roadw","roadh"].forEach(id=>$(id).addEventListener("change",saveForm));
+
+document.querySelectorAll("#occasionPills .pill").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#occasionPills .pill").forEach(x=>x.classList.remove("active"));b.classList.add("active");
+  const place=($("address").value.split(",")[0]||"YOUR PLACE").toUpperCase();
+  $("subtitle").value=b.dataset.title+" • "+place;
+  saveForm();
+});
+
+const presets={
+ clean:{radius:150,maxh:8,roadw:.9,roadh:.45},
+ city:{radius:180,maxh:9,roadw:1.1,roadh:.55},
+ detailed:{radius:240,maxh:10,roadw:1.25,roadh:.65}
+};
+document.querySelectorAll("#stylePills .pill").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#stylePills .pill").forEach(x=>x.classList.remove("active"));b.classList.add("active");
+  const p=presets[b.dataset.style];$("radius").value=p.radius;$("maxh").value=p.maxh;$("roadw").value=p.roadw;$("roadh").value=p.roadh;saveForm();
+});
 
 async function callAPI(payload){
-  const ctrl=new AbortController();
-  const t=setTimeout(()=>ctrl.abort(),90000);
+  const ctrl=new AbortController(),t=setTimeout(()=>ctrl.abort(),90000);
   try{
-    const r=await fetch("/.netlify/functions/map",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(payload),
-      signal:ctrl.signal
-    });
-    const text=await r.text();
-    let data={};
-    try{data=JSON.parse(text)}catch{}
-    if(!r.ok) throw new Error(data.error || ("Server error "+r.status));
+    const r=await fetch("/.netlify/functions/map",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),signal:ctrl.signal});
+    const text=await r.text();let data={};try{data=JSON.parse(text)}catch{}
+    if(!r.ok)throw new Error(data.error||("Server error "+r.status));
     return data;
   }finally{clearTimeout(t)}
 }
 
 $("health").onclick=async()=>{
-  log("Testing our server…");
-  try{
-    const d=await callAPI({action:"health"});
-    log("Server OK ✅\n"+d.message);
-  }catch(e){
-    log("Server test failed ❌\n"+e.message+"\n\nThis usually means the Netlify Function was not deployed.");
-  }
+  setServer(false,"Testing…");
+  try{const d=await callAPI({action:"health"});setServer(true,"Server online");log("Server OK ✅\n"+d.message)}
+  catch(e){setServer(false,"Server unavailable");log("Server test failed ❌\n"+e.message)}
 };
 
 function area(p){let a=0;for(let i=0;i<p.length;i++){const x=p[i],y=p[(i+1)%p.length];a+=x[0]*y[1]-y[0]*x[1]}return a/2}
-function pointInTri(p,a,b,c){
-  const s=(p1,p2,p3)=>(p1[0]-p3[0])*(p2[1]-p3[1])-(p2[0]-p3[0])*(p1[1]-p3[1]);
-  const b1=s(p,a,b)<0,b2=s(p,b,c)<0,b3=s(p,c,a)<0;return b1===b2&&b2===b3;
-}
-function earclip(poly){
-  let pts=poly.slice();if(area(pts)<0)pts.reverse();
-  const idx=pts.map((_,i)=>i),tris=[];let guard=0;
-  while(idx.length>3&&guard++<10000){
-    let cut=false;
-    for(let k=0;k<idx.length;k++){
-      const ia=idx[(k-1+idx.length)%idx.length],ib=idx[k],ic=idx[(k+1)%idx.length];
-      const a=pts[ia],b=pts[ib],c=pts[ic];
-      const cross=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]);if(cross<=0)continue;
-      let inside=false;
-      for(const j of idx){if(j===ia||j===ib||j===ic)continue;if(pointInTri(pts[j],a,b,c)){inside=true;break}}
-      if(!inside){tris.push([a,b,c]);idx.splice(k,1);cut=true;break}
-    }
-    if(!cut)break;
-  }
-  if(idx.length===3)tris.push([pts[idx[0]],pts[idx[1]],pts[idx[2]]]);
-  return tris;
-}
-function normal(a,b,c){
-  const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
-  const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],l=Math.hypot(...n)||1;
-  return n.map(x=>x/l);
-}
+function pointInTri(p,a,b,c){const s=(p1,p2,p3)=>(p1[0]-p3[0])*(p2[1]-p3[1])-(p2[0]-p3[0])*(p1[1]-p3[1]);const b1=s(p,a,b)<0,b2=s(p,b,c)<0,b3=s(p,c,a)<0;return b1===b2&&b2===b3}
+function earclip(poly){let pts=poly.slice();if(area(pts)<0)pts.reverse();const idx=pts.map((_,i)=>i),tris=[];let guard=0;while(idx.length>3&&guard++<10000){let cut=false;for(let k=0;k<idx.length;k++){const ia=idx[(k-1+idx.length)%idx.length],ib=idx[k],ic=idx[(k+1)%idx.length];const a=pts[ia],b=pts[ib],c=pts[ic];const cross=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]);if(cross<=0)continue;let inside=false;for(const j of idx){if(j===ia||j===ib||j===ic)continue;if(pointInTri(pts[j],a,b,c)){inside=true;break}}if(!inside){tris.push([a,b,c]);idx.splice(k,1);cut=true;break}}if(!cut)break}if(idx.length===3)tris.push([pts[idx[0]],pts[idx[1]],pts[idx[2]]]);return tris}
+function normal(a,b,c){const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],l=Math.hypot(...n)||1;return n.map(x=>x/l)}
 function facet(a,b,c){const n=normal(a,b,c);return `facet normal ${n.join(" ")}\n outer loop\n  vertex ${a.join(" ")}\n  vertex ${b.join(" ")}\n  vertex ${c.join(" ")}\n endloop\nendfacet\n`}
-function prism(poly,z0,z1){
-  let s="",tris=earclip(poly);
-  for(const t of tris){s+=facet([t[0][0],t[0][1],z1],[t[1][0],t[1][1],z1],[t[2][0],t[2][1],z1]);s+=facet([t[2][0],t[2][1],z0],[t[1][0],t[1][1],z0],[t[0][0],t[0][1],z0])}
-  for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length];s+=facet([a[0],a[1],z0],[b[0],b[1],z0],[b[0],b[1],z1]);s+=facet([a[0],a[1],z0],[b[0],b[1],z1],[a[0],a[1],z1])}
-  return s;
-}
-function box(x0,y0,z0,x1,y1,z1){
-  const p=[[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]];
-  const f=[[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[1,2,6],[1,6,5],[2,3,7],[2,7,6],[3,0,4],[3,4,7]];
-  return f.map(t=>facet(p[t[0]],p[t[1]],p[t[2]])).join("");
-}
-function heartPoly(cx,cy,r,n=56){
-  const pts=[];for(let i=0;i<n;i++){const t=2*Math.PI*i/n,x=16*Math.pow(Math.sin(t),3),y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);pts.push([cx+x*r/18,cy+y*r/18])}return pts;
-}
-function roadPoly(a,b,w){
-  const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1e-6)return null;
-  const nx=-dy/L*w/2,ny=dx/L*w/2;return[[a[0]+nx,a[1]+ny],[b[0]+nx,b[1]+ny],[b[0]-nx,b[1]-ny],[a[0]-nx,a[1]-ny]];
-}
-function draw(buildings,roads,size,heart){
-  const c=$("preview"),ctx=c.getContext("2d"),pad=24,sc=(c.width-2*pad)/size;
-  ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
-  ctx.strokeStyle="#bbb";ctx.lineWidth=1.1;
-  for(const s of roads){ctx.beginPath();ctx.moveTo(pad+(s[0][0]+size/2)*sc,c.height-(pad+(s[0][1]+size/2)*sc));ctx.lineTo(pad+(s[1][0]+size/2)*sc,c.height-(pad+(s[1][1]+size/2)*sc));ctx.stroke()}
-  ctx.fillStyle="#222";
-  for(const p of buildings){ctx.beginPath();p.forEach((q,i)=>{const x=pad+(q[0]+size/2)*sc,y=c.height-(pad+(q[1]+size/2)*sc);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}
-  ctx.fillStyle="#777";ctx.beginPath();heart.forEach((q,i)=>{const x=pad+(q[0]+size/2)*sc,y=c.height-(pad+(q[1]+size/2)*sc);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill();
-}
+function prism(poly,z0,z1){let s="",tris=earclip(poly);for(const t of tris){s+=facet([t[0][0],t[0][1],z1],[t[1][0],t[1][1],z1],[t[2][0],t[2][1],z1]);s+=facet([t[2][0],t[2][1],z0],[t[1][0],t[1][1],z0],[t[0][0],t[0][1],z0])}for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length];s+=facet([a[0],a[1],z0],[b[0],b[1],z0],[b[0],b[1],z1]);s+=facet([a[0],a[1],z0],[b[0],b[1],z1],[a[0],a[1],z1])}return s}
+function box(x0,y0,z0,x1,y1,z1){const p=[[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]];const f=[[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[1,2,6],[1,6,5],[2,3,7],[2,7,6],[3,0,4],[3,4,7]];return f.map(t=>facet(p[t[0]],p[t[1]],p[t[2]])).join("")}
+function heartPoly(cx,cy,r,n=56){const pts=[];for(let i=0;i<n;i++){const t=2*Math.PI*i/n,x=16*Math.pow(Math.sin(t),3),y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);pts.push([cx+x*r/18,cy+y*r/18])}return pts}
+function roadPoly(a,b,w){const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1e-6)return null;const nx=-dy/L*w/2,ny=dx/L*w/2;return[[a[0]+nx,a[1]+ny],[b[0]+nx,b[1]+ny],[b[0]-nx,b[1]-ny],[a[0]-nx,a[1]-ny]]}
+function draw(buildings,roads,size,heart){const c=$("preview"),ctx=c.getContext("2d"),pad=24,sc=(c.width-2*pad)/size;ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle="#f8f8f8";ctx.fillRect(0,0,c.width,c.height);ctx.strokeStyle="#c5c5c8";ctx.lineWidth=1.15;for(const s of roads){ctx.beginPath();ctx.moveTo(pad+(s[0][0]+size/2)*sc,c.height-(pad+(s[0][1]+size/2)*sc));ctx.lineTo(pad+(s[1][0]+size/2)*sc,c.height-(pad+(s[1][1]+size/2)*sc));ctx.stroke()}ctx.fillStyle="#1e1e22";for(const p of buildings){ctx.beginPath();p.forEach((q,i)=>{const x=pad+(q[0]+size/2)*sc,y=c.height-(pad+(q[1]+size/2)*sc);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}ctx.fillStyle="#777";ctx.beginPath();heart.forEach((q,i)=>{const x=pad+(q[0]+size/2)*sc,y=c.height-(pad+(q[1]+size/2)*sc);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}
+function slug(s){return(s||"memory-map").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,50)||"memory-map"}
 function download(name,text,type){const b=new Blob([text],{type}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
+function addHistory(info){let arr=[];try{arr=JSON.parse(localStorage.getItem(storeKey)||"[]")}catch{};arr.unshift(info);arr=arr.slice(0,5);localStorage.setItem(storeKey,JSON.stringify(arr));renderHistory()}
+function renderHistory(){let arr=[];try{arr=JSON.parse(localStorage.getItem(storeKey)||"[]")}catch{};$("history").innerHTML=arr.length?arr.map(x=>`<div class="hist"><b>${x.title||"Untitled"}</b><br><span class="small">${x.resolved_address||x.address} • ${x.building_count} buildings</span></div>`).join(""):'<div class="small">No maps yet.</div>'}
 
 $("generate").onclick=async()=>{
   try{
-    $("download").disabled=true;$("downloadInfo").disabled=true;
-    const address=$("address").value.trim(),size=+$("size").value||180,radius=+$("radius").value||180,base=+$("base").value||3.2,maxh=+$("maxh").value||9,roadW=+$("roadw").value||1.1,roadH=+$("roadh").value||0.55;
-    log("Server is finding the address and downloading map data…");
-    const data=await callAPI({action:"map",address,radius});
-    if(!data.buildings||!data.buildings.length)throw new Error("No buildings found. Try radius 250–350 m.");
-
-    const all=[];
-    data.buildings.forEach(b=>all.push(...b.pts));
-    data.roads.forEach(r=>all.push(...r.pts));
-    const xs=all.map(p=>p[0]),ys=all.map(p=>p[1]),minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
-    const cx=(minx+maxx)/2,cy=(miny+maxy)/2,w=maxx-minx||1,h=maxy-miny||1,sc=Math.min((size-16)/w,(size-16)/h);
-
-    let stl="solid memory_map_v6\n"+box(-size/2,-size/2,0,size/2,size/2,base),buildingPolys=[],roadSegs=[];
-    for(const b of data.buildings){
-      const p=b.pts.map(([x,y])=>[(x-cx)*sc,(y-cy)*sc]);
-      if(Math.abs(area(p))<0.2)continue;
-      const bh=Math.max(1.4,Math.min(maxh,b.hm*0.04*sc));stl+=prism(p,base,base+bh);buildingPolys.push(p);
-    }
-    for(const r of data.roads){
-      const p=r.pts.map(([x,y])=>[(x-cx)*sc,(y-cy)*sc]);
-      for(let i=0;i<p.length-1;i++){const rp=roadPoly(p[i],p[i+1],roadW);if(!rp)continue;stl+=prism(rp,base,base+roadH);roadSegs.push([p[i],p[i+1]])}
-    }
-    const mx=(0-cx)*sc,my=(0-cy)*sc,heart=heartPoly(mx,my,6);
-    stl+=prism(heart,base,base+2.8)+"endsolid memory_map_v6\n";
-
+    $("download").disabled=true;$("downloadInfo").disabled=true;progress(8);saveForm();
+    const address=$("address").value.trim(),size=+$("size").value||180,radius=+$("radius").value||180,base=+$("base").value||3.2,maxh=+$("maxh").value||9,roadW=+$("roadw").value||1.1,roadH=+$("roadh").value||.55;
+    if(!address)throw new Error("Enter an address first.");
+    log("Finding the place and loading map data…");progress(20);
+    const data=await callAPI({action:"map",address,radius});progress(48);
+    if(!data.buildings||!data.buildings.length)throw new Error("No buildings found. Try a larger radius.");
+    log("Building printable geometry…");
+    const all=[];data.buildings.forEach(b=>all.push(...b.pts));data.roads.forEach(r=>all.push(...r.pts));
+    const xs=all.map(p=>p[0]),ys=all.map(p=>p[1]),minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys),cx=(minx+maxx)/2,cy=(miny+maxy)/2,w=maxx-minx||1,h=maxy-miny||1,sc=Math.min((size-16)/w,(size-16)/h);
+    let stl="solid memory_map\n"+box(-size/2,-size/2,0,size/2,size/2,base),buildingPolys=[],roadSegs=[];progress(62);
+    for(const b of data.buildings){const p=b.pts.map(([x,y])=>[(x-cx)*sc,(y-cy)*sc]);if(Math.abs(area(p))<.2)continue;const bh=Math.max(1.4,Math.min(maxh,b.hm*.04*sc));stl+=prism(p,base,base+bh);buildingPolys.push(p)}
+    progress(74);
+    for(const r of data.roads){const p=r.pts.map(([x,y])=>[(x-cx)*sc,(y-cy)*sc]);for(let i=0;i<p.length-1;i++){const rp=roadPoly(p[i],p[i+1],roadW);if(!rp)continue;stl+=prism(rp,base,base+roadH);roadSegs.push([p[i],p[i+1]])}}
+    const mx=(0-cx)*sc,my=(0-cy)*sc,heart=heartPoly(mx,my,6);stl+=prism(heart,base,base+2.8)+"endsolid memory_map\n";progress(92);
     currentSTL=stl;
-    currentInfo={version:"6.0-server-side",address,resolved_address:data.resolved_address,lat:data.lat,lon:data.lon,title:$("title").value,subtitle:$("subtitle").value,map_size_mm:size,radius_m:radius,building_count:buildingPolys.length,road_segment_count:roadSegs.length};
+    currentInfo={version:"7.0-pro-ui",address,resolved_address:data.resolved_address,lat:data.lat,lon:data.lon,title:$("title").value,subtitle:$("subtitle").value,map_size_mm:size,radius_m:radius,building_count:buildingPolys.length,road_segment_count:roadSegs.length,created_at:new Date().toISOString()};
     draw(buildingPolys,roadSegs,size,heart);
-    $("download").disabled=false;$("downloadInfo").disabled=false;
-    log(`Ready ✅\n${data.resolved_address}\n\nBuildings: ${buildingPolys.length}\nRoad segments: ${roadSegs.length}\n\nTap Download STL.`);
-  }catch(e){
-    console.error(e);log("Error ❌\n"+e.message+"\n\nIf Test server fails too, the backend function is not deployed.");
-  }
+    $("mBuildings").textContent=buildingPolys.length;$("mRoads").textContent=roadSegs.length;$("mRadius").textContent=radius+"m";
+    $("download").disabled=false;$("downloadInfo").disabled=false;progress(100);addHistory(currentInfo);
+    log("Ready ✅\n"+data.resolved_address+"\n\nYour STL is ready to download.");
+  }catch(e){console.error(e);progress(0);log("Error ❌\n"+e.message)}
 };
-$("download").onclick=()=>currentSTL&&download("memory_map_v6.stl",currentSTL,"model/stl");
-$("downloadInfo").onclick=()=>currentInfo&&download("memory_map_order_v6.json",JSON.stringify(currentInfo,null,2),"application/json");
+$("download").onclick=()=>currentSTL&&download(slug($("title").value)+"-memory-map.stl",currentSTL,"model/stl");
+$("downloadInfo").onclick=()=>currentInfo&&download(slug($("title").value)+"-order.json",JSON.stringify(currentInfo,null,2),"application/json");
+
+restoreForm();renderHistory();
+if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{})}
 </script>
 </body>
 </html>
