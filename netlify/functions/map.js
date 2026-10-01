@@ -1,4 +1,4 @@
-const UA = "MemoryMapV9/2.0";
+const UA = "MemoryMapV10/1.0";
 
 async function fetchJson(url, options = {}, timeoutMs = 30000) {
   const ctrl = new AbortController();
@@ -36,7 +36,7 @@ async function geocode(address) {
 async function overpass(lat, lon, radius) {
   // IMPORTANT: include relation-based buildings and building:part.
   // Many landmarks and complex buildings are multipolygon relations, not a single way.
-  const q = `[out:json][timeout:60];
+  const q = `[out:json][timeout:85];
   (
     way["building"](around:${radius},${lat},${lon});
     relation["building"](around:${radius},${lat},${lon});
@@ -58,7 +58,7 @@ async function overpass(lat, lon, radius) {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body: q
-      }, 70000);
+      }, 90000);
     } catch (e) { last = e; }
   }
   throw last || new Error("All Overpass servers failed");
@@ -80,8 +80,16 @@ function heightFromTags(tags = {}) {
     const m = String(tags["building:levels"]).match(/[0-9]+(?:\.[0-9]+)?/);
     if (m) return +m[0] * 3.2;
   }
-  if (tags["building:min_level"]) return 12;
-  return tags["building:part"] ? 9 : 12;
+  if (tags["building:min_level"]) {
+    const m=String(tags["building:min_level"]).match(/[0-9]+(?:\.[0-9]+)?/);
+    if(m) return Math.max(6,(+m[0]+3)*3.2);
+  }
+  if (tags["building:part"]) return 9;
+  const type=String(tags.building||"").toLowerCase();
+  if (["apartments","office","commercial","hotel","hospital","university"].includes(type)) return 18;
+  if (["house","detached","semidetached_house","terrace","bungalow"].includes(type)) return 8.5;
+  if (["church","cathedral","civic","public"].includes(type)) return 16;
+  return 12;
 }
 
 function samePoint(a, b) {
@@ -230,7 +238,7 @@ exports.handler = async function(event) {
       return {
         statusCode: 200,
         headers: { "Content-Type":"application/json" },
-        body: JSON.stringify({ ok:true, message:"MemoryMap V9.2 geometry engine is running." })
+        body: JSON.stringify({ ok:true, message:"MemoryMap V10 City Wide engine is running." })
       };
     }
 
@@ -239,8 +247,7 @@ exports.handler = async function(event) {
     const address = String(body.address || "").trim();
     if (!address) throw new Error("Address is required");
 
-    let radius = Number(body.radius || 140);
-    radius = Math.max(50, Math.min(radius, 400));
+    let radius = Number(body.radius || 1000); radius = Math.max(100, Math.min(radius, 1500));
 
     const g = await geocode(address);
     const osm = await overpass(g.lat, g.lon, radius);
@@ -253,7 +260,7 @@ exports.handler = async function(event) {
         "Cache-Control":"no-store"
       },
       body: JSON.stringify({
-        engine: "v9.2-relations-parts",
+        engine: "v10-city-wide",
         resolved_address: g.name,
         lat: g.lat,
         lon: g.lon,
