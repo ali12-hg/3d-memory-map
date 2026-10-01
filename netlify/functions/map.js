@@ -1,4 +1,4 @@
-const UA = "MemoryMapV8/1.0";
+const UA = "MemoryMapV9/1.0";
 
 async function fetchJson(url, options = {}, timeoutMs = 30000) {
   const ctrl = new AbortController();
@@ -76,6 +76,7 @@ function parseOSM(osm, clat, clon) {
   }
 
   const buildings = [], roads = [];
+  const keepHighways = new Set(["primary","secondary","tertiary","residential","unclassified","living_street","road"]);
   for (const w of ways) {
     let pts = (w.nodes || []).map(id => nodes.get(id)).filter(Boolean);
     if (pts.length < 2) continue;
@@ -98,12 +99,12 @@ function parseOSM(osm, clat, clon) {
         pts: pts.map(([lat,lon]) => ll2xy(lat,lon,clat,clon)),
         hm
       });
-    } else if (w.tags && w.tags.highway) {
-      if (["motorway","trunk"].includes(w.tags.highway)) continue;
-      roads.push({
-        pts: pts.map(([lat,lon]) => ll2xy(lat,lon,clat,clon)),
-        type: w.tags.highway
-      });
+    } else if (w.tags && w.tags.highway && keepHighways.has(w.tags.highway)) {
+      const xy = pts.map(([lat,lon]) => ll2xy(lat,lon,clat,clon));
+      let len = 0;
+      for (let i=0;i<xy.length-1;i++) len += Math.hypot(xy[i+1][0]-xy[i][0], xy[i+1][1]-xy[i][1]);
+      if (len < 12) continue;
+      roads.push({ pts: xy, type: w.tags.highway });
     }
   }
   return { buildings, roads };
