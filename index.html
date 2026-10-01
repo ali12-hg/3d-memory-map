@@ -50,7 +50,7 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 <body>
 <div class="wrap">
   <div class="hero">
-    <div class="eyebrow">MemoryMap Studio • V8 Pro Max</div>
+    <div class="eyebrow">MemoryMap Studio • V9 Real Print</div>
     <h1>Turn a place into a 3D memory.</h1>
     <p>Pro 3D preview, white buildings, black roads, premium presets and printable STL export.</p>
   </div>
@@ -147,17 +147,17 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 const $=id=>document.getElementById(id);
 let currentSTL="",currentInfo=null;
 let printRenderer=null,printScene=null,printCamera=null;
-const storeKey="memorymap_v8_history";
+const storeKey="memorymap_v9_history";
 
 function log(s){$("status").textContent=s}
 function progress(n){$("progressBar").style.width=n+"%"}
 function setServer(ok,text){$("serverDot").className="dot "+(ok?"ok":"bad");$("serverText").textContent=text}
 function saveForm(){
   const ids=["address","title","subtitle","size","radius","base","maxh","roadw","roadh","previewMode","markerType"];
-  const o={}; ids.forEach(id=>o[id]=$(id).value); localStorage.setItem("memorymap_v8_form",JSON.stringify(o));
+  const o={}; ids.forEach(id=>o[id]=$(id).value); localStorage.setItem("memorymap_v9_form",JSON.stringify(o));
 }
 function restoreForm(){
-  try{const o=JSON.parse(localStorage.getItem("memorymap_v8_form")||"{}");Object.keys(o).forEach(k=>{if($(k))$(k).value=o[k]})}catch{}
+  try{const o=JSON.parse(localStorage.getItem("memorymap_v9_form")||"{}");Object.keys(o).forEach(k=>{if($(k))$(k).value=o[k]})}catch{}
 }
 ["address","title","subtitle","size","radius","base","maxh","roadw","roadh","previewMode","markerType"].forEach(id=>$(id).addEventListener("change",saveForm));
 
@@ -386,7 +386,7 @@ $("download").onclick=()=>currentSTL&&download(slug($("title").value)+"-memory-m
 $("downloadInfo").onclick=()=>currentInfo&&download(slug($("title").value)+"-order-v9.json",JSON.stringify(currentInfo,null,2),"application/json");
 
 restoreForm();renderHistory();
-if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{})}
+if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js?v=9").catch(()=>{})}
 </script>
 </body>
 </html>
