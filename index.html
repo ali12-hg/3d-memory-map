@@ -33,6 +33,8 @@ button:disabled{opacity:.42}
 .progress{height:8px;background:#24242a;border-radius:999px;overflow:hidden;margin-top:12px}
 .progress>div{height:100%;width:0;background:#f4f4f4;transition:width .25s}
 canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
+#printPreview3d{width:100%;height:560px;background:linear-gradient(#f6f6f6,#e9e9e9);border-radius:16px;overflow:hidden;touch-action:none}
+#printPreview3d canvas{width:100%!important;height:100%!important;display:block;background:transparent;border-radius:16px}
 #status{white-space:pre-wrap;background:#0b0b0e;border-radius:14px;padding:13px;min-height:92px;color:#d7d7da;font-size:14px}
 .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
 .metric{background:#111116;border:1px solid #303036;border-radius:14px;padding:10px}
@@ -43,6 +45,8 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 .hidden{display:none}
 @media(max-width:620px){.row{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr 1fr}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -97,8 +101,8 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
       <div>
         <label>Preview mode</label>
         <select id="previewMode">
-          <option value="iso" selected>3D Isometric</option>
-          <option value="top">Top-down</option>
+          <option value="real3d" selected>Real Print 3D</option>
+          <option value="top">Top-down technical</option>
         </select>
       </div>
       <div>
@@ -129,8 +133,9 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 
   <div class="card">
     <div class="section-title">Preview</div>
-    <canvas id="preview" width="900" height="760"></canvas>
-    <p class="small">V8 preview: white 3D buildings with gray sides and strong black roads. Final STL remains printable.</p>
+    <div id="printPreview3d"></div>
+    <canvas id="preview" width="900" height="760" style="display:none"></canvas>
+    <p class="small">Real Print Preview: نفس geometry ديال STL، مع simulation ديال white PLA buildings/base و black PLA roads. جرّ الخريطة بصبعك باش تدورها و zoom بجوج صبيعات.</p>
   </div>
 
   <div class="card">
@@ -142,6 +147,7 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 <script>
 const $=id=>document.getElementById(id);
 let currentSTL="",currentInfo=null;
+let printRenderer=null,printScene=null,printCamera=null,printControls=null;
 const storeKey="memorymap_v8_history";
 
 function log(s){$("status").textContent=s}
@@ -202,22 +208,110 @@ function starPoly(cx,cy,r,n=10){const pts=[];for(let i=0;i<n;i++){const a=-Math.
 function pinPoly(cx,cy,r,n=24){const pts=[];for(let i=0;i<n;i++){const a=Math.PI+(Math.PI*i/(n-1));pts.push([cx+Math.cos(a)*r,cy+Math.sin(a)*r*.95+r*.3])}pts.push([cx,cy-r*1.55]);return pts}
 function markerPoly(type,cx,cy,r){if(type==="star")return starPoly(cx,cy,r);if(type==="pin")return pinPoly(cx,cy,r);return heartPoly(cx,cy,r)}
 function roadPoly(a,b,w){const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1e-6)return null;const nx=-dy/L*w/2,ny=dx/L*w/2;return[[a[0]+nx,a[1]+ny],[b[0]+nx,b[1]+ny],[b[0]-nx,b[1]-ny],[a[0]-nx,a[1]-ny]]}
-function draw(buildings,roads,size,heart){const c=$("preview"),ctx=c.getContext("2d"),pad=24,sc=(c.width-2*pad)/size;ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle="#f8f8f8";ctx.fillRect(0,0,c.width,c.height);ctx.strokeStyle="#c5c5c8";ctx.lineWidth=1.15;for(const s of roads){ctx.beginPath();ctx.moveTo(pad+(s[0][0]+size/2)*sc,c.height-(pad+(s[0][1]+size/2)*sc));ctx.lineTo(pad+(s[1][0]+size/2)*sc,c.height-(pad+(s[1][1]+size/2)*sc));ctx.stroke()}ctx.fillStyle="#1e1e22";for(const p of buildings){ctx.beginPath();p.forEach((q,i)=>{const x=pad+(q[0]+size/2)*sc,y=c.height-(pad+(q[1]+size/2)*sc);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}ctx.fillStyle="#777";ctx.beginPath();heart.forEach((q,i)=>{const x=pad+(q[0]+size/2)*sc,y=c.height-(pad+(q[1]+size/2)*sc);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}
-function drawPro(buildings,roads,size,marker){
-  if($("previewMode").value==="top"){draw(buildings,roads,size,marker);return}
-  const c=$("preview"),ctx=c.getContext("2d"),pad=48,sc=Math.min((c.width-2*pad)/size,(c.height-2*pad)/size);
-  ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle="#f1f1f1";ctx.fillRect(0,0,c.width,c.height);
-  const tx=p=>[c.width/2+p[0]*sc,c.height/2-p[1]*sc];
-  ctx.strokeStyle="#050505";ctx.lineWidth=Math.max(2,1.7*sc);
-  for(const s of roads){const a=tx(s[0]),b=tx(s[1]);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke()}
-  const sorted=buildings.slice().sort((a,b)=>{const ay=a.reduce((q,p)=>q+p[1],0)/a.length;const by=b.reduce((q,p)=>q+p[1],0)/b.length;return by-ay});
-  const ex=-7,ey=-10;
-  for(const poly of sorted){
-    const base=poly.map(tx),top=base.map(([x,y])=>[x+ex,y+ey]);
-    for(let i=0;i<base.length;i++){const j=(i+1)%base.length;ctx.beginPath();ctx.moveTo(base[i][0],base[i][1]);ctx.lineTo(base[j][0],base[j][1]);ctx.lineTo(top[j][0],top[j][1]);ctx.lineTo(top[i][0],top[i][1]);ctx.closePath();ctx.fillStyle=i%2?"#b9b9b9":"#d0d0d0";ctx.fill();ctx.strokeStyle="#5b5b5b";ctx.lineWidth=.8;ctx.stroke()}
-    ctx.beginPath();top.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fillStyle="#ffffff";ctx.fill();ctx.strokeStyle="#111111";ctx.lineWidth=1.1;ctx.stroke()
+function draw(buildings,roads,size,heart){const c=$("preview"),ctx=c.getContext("2d"),pad=24,sc=(c.width-2*pad)/size;ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle="#f8f8f8";ctx.fillRect(0,0,c.width,c.height);ctx.strokeStyle="#c5c5c8";ctx.lineWidth=1.15;for(const s of roads){ctx.beginPath();ctx.moveTo(pad+(s[0][0]+size/2)*sc,c.height-(pad+(s[0][1]+size/2)*sc));ctx.lineTo(pad+(s[1][0]+size/2)*sc,c.height-(pad+(s[1][1]+size/2)*sc));ctx.stroke()}ctx.fillStyle="#1e1e22";for(const item of buildings){const p=item.poly||item;ctx.beginPath();p.forEach((q,i)=>{const x=pad+(q[0]+size/2)*sc,y=c.height-(pad+(q[1]+size/2)*sc);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}ctx.fillStyle="#777";ctx.beginPath();heart.forEach((q,i)=>{const x=pad+(q[0]+size/2)*sc,y=c.height-(pad+(q[1]+size/2)*sc);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}
+function clearThreeObject(obj){
+  if(!obj)return;
+  obj.traverse?.(child=>{
+    if(child.geometry)child.geometry.dispose?.();
+    if(child.material){
+      const mats=Array.isArray(child.material)?child.material:[child.material];
+      mats.forEach(m=>m.dispose?.());
+    }
+  });
+}
+function shapeFromPoly(poly){
+  const s=new THREE.Shape();
+  if(!poly.length)return s;
+  s.moveTo(poly[0][0],poly[0][1]);
+  for(let i=1;i<poly.length;i++)s.lineTo(poly[i][0],poly[i][1]);
+  s.closePath();
+  return s;
+}
+function renderReal3D(buildings,roads,size,marker,baseH,roadW,roadH){
+  if($("previewMode").value==="top"){draw(buildings,roads,size,marker);$("preview").style.display="block";$("printPreview3d").style.display="none";return}
+  $("preview").style.display="none";$("printPreview3d").style.display="block";
+  const host=$("printPreview3d");
+  if(printRenderer){printRenderer.dispose();host.innerHTML="";clearThreeObject(printScene)}
+  printScene=new THREE.Scene();
+  printScene.background=new THREE.Color(0xf2f2f2);
+
+  const w=Math.max(320,host.clientWidth||760),h=Math.max(380,host.clientHeight||560);
+  printRenderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+  printRenderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  printRenderer.setSize(w,h,false);
+  printRenderer.shadowMap.enabled=true;
+  printRenderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  host.appendChild(printRenderer.domElement);
+
+  printCamera=new THREE.PerspectiveCamera(34,w/h,0.1,2000);
+  printCamera.position.set(size*.78,-size*.92,size*.85);
+  printCamera.up.set(0,0,1);
+
+  printControls=new THREE.OrbitControls(printCamera,printRenderer.domElement);
+  printControls.target.set(0,0,baseH+4);
+  printControls.enableDamping=true;
+  printControls.dampingFactor=.08;
+  printControls.minDistance=size*.55;
+  printControls.maxDistance=size*2.3;
+  printControls.maxPolarAngle=Math.PI*.48;
+
+  const hemi=new THREE.HemisphereLight(0xffffff,0x9a9a9a,1.75);
+  printScene.add(hemi);
+  const key=new THREE.DirectionalLight(0xffffff,3.2);
+  key.position.set(size*.55,-size*.7,size*1.25);
+  key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.left=-size;key.shadow.camera.right=size;key.shadow.camera.top=size;key.shadow.camera.bottom=-size;
+  printScene.add(key);
+  const fill=new THREE.DirectionalLight(0xffffff,1.0);fill.position.set(-size*.65,size*.35,size*.55);printScene.add(fill);
+
+  const baseGeo=new THREE.BoxGeometry(size,size,baseH);
+  const baseMat=new THREE.MeshStandardMaterial({color:0xf7f7f3,roughness:.72,metalness:0});
+  const baseMesh=new THREE.Mesh(baseGeo,baseMat);
+  baseMesh.position.z=baseH/2;baseMesh.receiveShadow=true;baseMesh.castShadow=true;
+  printScene.add(baseMesh);
+
+  const whiteTop=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.62,metalness:0});
+  for(const item of buildings){
+    const poly=item.poly||item, bh=item.height||3;
+    if(poly.length<3)continue;
+    const geo=new THREE.ExtrudeGeometry(shapeFromPoly(poly),{depth:bh,bevelEnabled:false,steps:1});
+    const mesh=new THREE.Mesh(geo,whiteTop.clone());
+    mesh.position.z=baseH;
+    mesh.castShadow=true;mesh.receiveShadow=true;
+    printScene.add(mesh);
   }
-  const m=marker.map(tx).map(([x,y])=>[x+ex,y+ey-4]);ctx.beginPath();m.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fillStyle="#55555d";ctx.fill();ctx.strokeStyle="#111";ctx.lineWidth=1;ctx.stroke()
+
+  const blackMat=new THREE.MeshStandardMaterial({color:0x090909,roughness:.7,metalness:0});
+  for(const s of roads){
+    const rp=roadPoly(s[0],s[1],roadW);
+    if(!rp)continue;
+    const geo=new THREE.ExtrudeGeometry(shapeFromPoly(rp),{depth:roadH,bevelEnabled:false,steps:1});
+    const mesh=new THREE.Mesh(geo,blackMat);
+    mesh.position.z=baseH+.02;
+    mesh.castShadow=true;mesh.receiveShadow=true;
+    printScene.add(mesh);
+  }
+
+  if(marker&&marker.length>=3){
+    const markGeo=new THREE.ExtrudeGeometry(shapeFromPoly(marker),{depth:2.8,bevelEnabled:false,steps:1});
+    const markMat=new THREE.MeshStandardMaterial({color:0x45454a,roughness:.55});
+    const markMesh=new THREE.Mesh(markGeo,markMat);
+    markMesh.position.z=baseH+.05;markMesh.castShadow=true;
+    printScene.add(markMesh);
+  }
+
+  const ground=new THREE.Mesh(
+    new THREE.PlaneGeometry(size*2.8,size*2.8),
+    new THREE.ShadowMaterial({color:0x000000,opacity:.14})
+  );
+  ground.position.z=-.08;ground.receiveShadow=true;printScene.add(ground);
+
+  function animate(){if(!printRenderer)return;requestAnimationFrame(animate);printControls?.update();printRenderer.render(printScene,printCamera)}
+  animate();
+}
+function drawPro(buildings,roads,size,marker,baseH,roadW,roadH){
+  renderReal3D(buildings,roads,size,marker,baseH,roadW,roadH);
 }
 function slug(s){return(s||"memory-map").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,50)||"memory-map"}
 function download(name,text,type){const b=new Blob([text],{type}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
@@ -236,16 +330,16 @@ $("generate").onclick=async()=>{
     const all=[];data.buildings.forEach(b=>all.push(...b.pts));data.roads.forEach(r=>all.push(...r.pts));
     const xs=all.map(p=>p[0]),ys=all.map(p=>p[1]),minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys),cx=(minx+maxx)/2,cy=(miny+maxy)/2,w=maxx-minx||1,h=maxy-miny||1,sc=Math.min((size-16)/w,(size-16)/h);
     let stl="solid memory_map\n"+box(-size/2,-size/2,0,size/2,size/2,base),buildingPolys=[],roadSegs=[];progress(62);
-    for(const b of data.buildings){const p=b.pts.map(([x,y])=>[(x-cx)*sc,(y-cy)*sc]);if(Math.abs(area(p))<.2)continue;const bh=Math.max(1.4,Math.min(maxh,b.hm*.04*sc));stl+=prism(p,base,base+bh);buildingPolys.push(p)}
+    for(const b of data.buildings){const p=b.pts.map(([x,y])=>[(x-cx)*sc,(y-cy)*sc]);if(Math.abs(area(p))<.2)continue;const bh=Math.max(1.4,Math.min(maxh,b.hm*.04*sc));stl+=prism(p,base,base+bh);buildingPolys.push({poly:p,height:bh})}
     progress(74);
     for(const r of data.roads){const p=r.pts.map(([x,y])=>[(x-cx)*sc,(y-cy)*sc]);for(let i=0;i<p.length-1;i++){const rp=roadPoly(p[i],p[i+1],roadW);if(!rp)continue;stl+=prism(rp,base,base+roadH);roadSegs.push([p[i],p[i+1]])}}
     const mx=(0-cx)*sc,my=(0-cy)*sc,marker=markerPoly($("markerType").value,mx,my,6.2);stl+=prism(marker,base,base+2.8)+"endsolid memory_map_v8\n";progress(92);
     currentSTL=stl;
     currentInfo={version:"8.0-pro-max",address,resolved_address:data.resolved_address,lat:data.lat,lon:data.lon,title:$("title").value,subtitle:$("subtitle").value,map_size_mm:size,radius_m:radius,building_count:buildingPolys.length,road_segment_count:roadSegs.length,preview_mode:$("previewMode").value,marker:$("markerType").value,created_at:new Date().toISOString()};
-    drawPro(buildingPolys,roadSegs,size,marker);
+    drawPro(buildingPolys,roadSegs,size,marker,base,roadW,roadH);
     $("mBuildings").textContent=buildingPolys.length;$("mRoads").textContent=roadSegs.length;$("mRadius").textContent=radius+"m";$("mMode").textContent=$("previewMode").value;
     $("download").disabled=false;$("downloadInfo").disabled=false;progress(100);addHistory(currentInfo);
-    log("Ready ✅\n"+data.resolved_address+"\n\nV8 Pro Max STL is ready.");
+    log("Ready ✅\n"+data.resolved_address+"\n\nReal Print Preview ready ✅\nجرّ الخريطة بصبعك باش تشوفها من أي زاوية.");
   }catch(e){console.error(e);progress(0);log("Error ❌\n"+e.message)}
 };
 $("download").onclick=()=>currentSTL&&download(slug($("title").value)+"-memory-map-v8.stl",currentSTL,"model/stl");
