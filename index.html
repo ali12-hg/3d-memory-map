@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111111">
 <link rel="manifest" href="/manifest.webmanifest">
-<title>MemoryMap Studio V9 Real Print</title>
+<title>MemoryMap Studio V9.2 Detail Engine</title>
 <style>
 :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark}
 *{box-sizing:border-box}
@@ -50,7 +50,7 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 <body>
 <div class="wrap">
   <div class="hero">
-    <div class="eyebrow">MemoryMap Studio • V9 Real Print</div>
+    <div class="eyebrow">MemoryMap Studio • V9.2 Detail Engine</div>
     <h1>Turn a place into a 3D memory.</h1>
     <p>Pro 3D preview, white buildings, black roads, premium presets and printable STL export.</p>
   </div>
@@ -86,15 +86,15 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
     </div>
     <div class="row">
       <div><label>Map size (mm)</label><input id="size" type="number" value="180" min="80" max="300"></div>
-      <div><label>Radius (m)</label><input id="radius" type="number" value="140" min="50" max="400"></div>
+      <div><label>Radius (m)</label><input id="radius" type="number" value="120" min="50" max="400"></div>
     </div>
     <div class="row">
       <div><label>Base (mm)</label><input id="base" type="number" step="0.1" value="3.2"></div>
       <div><label>Max building (mm)</label><input id="maxh" type="number" step="0.1" value="9"></div>
     </div>
     <div class="row">
-      <div><label>Road width (mm)</label><input id="roadw" type="number" step="0.1" value="0.8"></div>
-      <div><label>Road height (mm)</label><input id="roadh" type="number" step="0.1" value="0.45"></div>
+      <div><label>Road width (mm)</label><input id="roadw" type="number" step="0.1" value="0.72"></div>
+      <div><label>Road height (mm)</label><input id="roadh" type="number" step="0.1" value="0.40"></div>
     </div>
     <div class="row">
       <div>
@@ -147,17 +147,17 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 const $=id=>document.getElementById(id);
 let currentSTL="",currentInfo=null;
 let printRenderer=null,printScene=null,printCamera=null;
-const storeKey="memorymap_v9_history";
+const storeKey="memorymap_v92_history";
 
 function log(s){$("status").textContent=s}
 function progress(n){$("progressBar").style.width=n+"%"}
 function setServer(ok,text){$("serverDot").className="dot "+(ok?"ok":"bad");$("serverText").textContent=text}
 function saveForm(){
   const ids=["address","title","subtitle","size","radius","base","maxh","roadw","roadh","previewMode","markerType"];
-  const o={}; ids.forEach(id=>o[id]=$(id).value); localStorage.setItem("memorymap_v9_form",JSON.stringify(o));
+  const o={}; ids.forEach(id=>o[id]=$(id).value); localStorage.setItem("memorymap_v92_form",JSON.stringify(o));
 }
 function restoreForm(){
-  try{const o=JSON.parse(localStorage.getItem("memorymap_v9_form")||"{}");Object.keys(o).forEach(k=>{if($(k))$(k).value=o[k]})}catch{}
+  try{const o=JSON.parse(localStorage.getItem("memorymap_v92_form")||"{}");Object.keys(o).forEach(k=>{if($(k))$(k).value=o[k]})}catch{}
 }
 ["address","title","subtitle","size","radius","base","maxh","roadw","roadh","previewMode","markerType"].forEach(id=>$(id).addEventListener("change",saveForm));
 
@@ -375,7 +375,7 @@ $("generate").onclick=async()=>{
     for(const r of data.roads){const p=r.pts.map(([x,y])=>[(x-cx)*sc,(y-cy)*sc]);for(let i=0;i<p.length-1;i++){const rp=roadPoly(p[i],p[i+1],roadW);if(!rp)continue;stl+=prism(rp,base,base+roadH);roadSegs.push([p[i],p[i+1]])}}
     const mx=(0-cx)*sc,my=(0-cy)*sc,marker=markerPoly($("markerType").value,mx,my,6.2);stl+=prism(marker,base,base+2.8)+"endsolid memory_map_v8\n";progress(92);
     currentSTL=stl;
-    currentInfo={version:"9.0-real-print",address,resolved_address:data.resolved_address,lat:data.lat,lon:data.lon,title:$("title").value,subtitle:$("subtitle").value,map_size_mm:size,radius_m:radius,building_count:buildingPolys.length,road_segment_count:roadSegs.length,preview_mode:$("previewMode").value,marker:$("markerType").value,created_at:new Date().toISOString()};
+    currentInfo={version:"9.2-detail-engine",address,resolved_address:data.resolved_address,lat:data.lat,lon:data.lon,title:$("title").value,subtitle:$("subtitle").value,map_size_mm:size,radius_m:radius,building_count:buildingPolys.length,road_segment_count:roadSegs.length,preview_mode:$("previewMode").value,marker:$("markerType").value,created_at:new Date().toISOString()};
     drawPro(buildingPolys,roadSegs,size,marker,base,roadW,roadH);
     $("mBuildings").textContent=buildingPolys.length;$("mRoads").textContent=roadSegs.length;$("mRadius").textContent=radius+"m";$("mMode").textContent=$("previewMode").value;
     $("download").disabled=false;$("downloadInfo").disabled=false;progress(100);addHistory(currentInfo);
