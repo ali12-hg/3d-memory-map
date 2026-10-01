@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111111">
 <link rel="manifest" href="/manifest.webmanifest">
-<title>MemoryMap Studio V8 Pro Max</title>
+<title>MemoryMap Studio V9 Real Print</title>
 <style>
 :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark}
 *{box-sizing:border-box}
@@ -86,15 +86,15 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
     </div>
     <div class="row">
       <div><label>Map size (mm)</label><input id="size" type="number" value="180" min="80" max="300"></div>
-      <div><label>Radius (m)</label><input id="radius" type="number" value="180" min="50" max="400"></div>
+      <div><label>Radius (m)</label><input id="radius" type="number" value="140" min="50" max="400"></div>
     </div>
     <div class="row">
       <div><label>Base (mm)</label><input id="base" type="number" step="0.1" value="3.2"></div>
       <div><label>Max building (mm)</label><input id="maxh" type="number" step="0.1" value="9"></div>
     </div>
     <div class="row">
-      <div><label>Road width (mm)</label><input id="roadw" type="number" step="0.1" value="1.25"></div>
-      <div><label>Road height (mm)</label><input id="roadh" type="number" step="0.1" value="0.65"></div>
+      <div><label>Road width (mm)</label><input id="roadw" type="number" step="0.1" value="0.8"></div>
+      <div><label>Road height (mm)</label><input id="roadh" type="number" step="0.1" value="0.45"></div>
     </div>
     <div class="row">
       <div>
@@ -169,10 +169,10 @@ document.querySelectorAll("#occasionPills .pill").forEach(b=>b.onclick=()=>{
 });
 
 const presets={
- contrast:{radius:180,maxh:10,roadw:1.25,roadh:.65},
- clean:{radius:150,maxh:8.5,roadw:1.0,roadh:.50},
- detailed:{radius:240,maxh:11,roadw:1.30,roadh:.70},
- mini:{radius:210,maxh:12,roadw:1.10,roadh:.55}
+ contrast:{radius:140,maxh:13,roadw:.80,roadh:.45},
+ clean:{radius:130,maxh:11,roadw:.72,roadh:.40},
+ detailed:{radius:160,maxh:15,roadw:.82,roadh:.46},
+ mini:{radius:120,maxh:14,roadw:.68,roadh:.38}
 };
 document.querySelectorAll("#stylePills .pill").forEach(b=>b.onclick=()=>{
   document.querySelectorAll("#stylePills .pill").forEach(x=>x.classList.remove("active"));b.classList.add("active");
@@ -247,7 +247,7 @@ function renderReal3D(buildings,roads,size,marker,baseH,roadW,roadH){
   printCamera.up.set(0,0,1);
 
   const target=new THREE.Vector3(0,0,baseH+4);
-  let yaw=-0.72,pitch=0.88,distance=size*1.42;
+  let yaw=-0.82,pitch=0.92,distance=size*1.34;
   const minDist=size*.55,maxDist=size*2.4;
   function updateCamera(){
     pitch=Math.max(0.28,Math.min(1.42,pitch));
@@ -302,12 +302,12 @@ function renderReal3D(buildings,roads,size,marker,baseH,roadW,roadH){
   const fill=new THREE.DirectionalLight(0xffffff,1.0);fill.position.set(-size*.65,size*.35,size*.55);printScene.add(fill);
 
   const baseGeo=new THREE.BoxGeometry(size,size,baseH);
-  const baseMat=new THREE.MeshStandardMaterial({color:0xf7f7f3,roughness:.72,metalness:0});
+  const baseMat=new THREE.MeshStandardMaterial({color:0xd8d6d1,roughness:.88,metalness:0});
   const baseMesh=new THREE.Mesh(baseGeo,baseMat);
   baseMesh.position.z=baseH/2;baseMesh.receiveShadow=true;baseMesh.castShadow=true;
   printScene.add(baseMesh);
 
-  const whiteTop=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.62,metalness:0});
+  const whiteTop=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.68,metalness:0});
   for(const item of buildings){
     const poly=item.poly||item, bh=item.height||3;
     if(poly.length<3)continue;
@@ -316,11 +316,15 @@ function renderReal3D(buildings,roads,size,marker,baseH,roadW,roadH){
     mesh.position.z=baseH;
     mesh.castShadow=true;mesh.receiveShadow=true;
     printScene.add(mesh);
+    const edgeGeo=new THREE.EdgesGeometry(geo,25);
+    const edge=new THREE.LineSegments(edgeGeo,new THREE.LineBasicMaterial({color:0xa8a6a2}));
+    edge.position.z=baseH+.01;
+    printScene.add(edge);
   }
 
-  const blackMat=new THREE.MeshStandardMaterial({color:0x090909,roughness:.7,metalness:0});
+  const blackMat=new THREE.MeshStandardMaterial({color:0x4a4a4a,roughness:.9,metalness:0});
   for(const s of roads){
-    const rp=roadPoly(s[0],s[1],roadW);
+    const rp=roadPoly(s[0],s[1],roadW*.78);
     if(!rp)continue;
     const geo=new THREE.ExtrudeGeometry(shapeFromPoly(rp),{depth:roadH,bevelEnabled:false,steps:1});
     const mesh=new THREE.Mesh(geo,blackMat);
@@ -358,7 +362,7 @@ $("generate").onclick=async()=>{
   try{
     $("download").disabled=true;$("downloadInfo").disabled=true;progress(8);saveForm();
     const address=$("address").value.trim(),size=+$("size").value||180,radius=+$("radius").value||180,base=+$("base").value||3.2,maxh=+$("maxh").value||9,roadW=+$("roadw").value||1.1,roadH=+$("roadh").value||.55;
-    if(!address)throw new Error("Enter an address first.");
+    if(!address)throw new Error("Enter an address first."); if(/^(tokyo|paris|milan|milano|london|rome|roma|new york)$/i.test(address))throw new Error('Use a precise place, for example "Shibuya Crossing, Tokyo, Japan". A whole city is too broad for a clean print.');
     log("Finding the place and loading map data…");progress(20);
     const data=await callAPI({action:"map",address,radius});progress(48);
     if(!data.buildings||!data.buildings.length)throw new Error("No buildings found. Try a larger radius.");
@@ -371,15 +375,15 @@ $("generate").onclick=async()=>{
     for(const r of data.roads){const p=r.pts.map(([x,y])=>[(x-cx)*sc,(y-cy)*sc]);for(let i=0;i<p.length-1;i++){const rp=roadPoly(p[i],p[i+1],roadW);if(!rp)continue;stl+=prism(rp,base,base+roadH);roadSegs.push([p[i],p[i+1]])}}
     const mx=(0-cx)*sc,my=(0-cy)*sc,marker=markerPoly($("markerType").value,mx,my,6.2);stl+=prism(marker,base,base+2.8)+"endsolid memory_map_v8\n";progress(92);
     currentSTL=stl;
-    currentInfo={version:"8.0-pro-max",address,resolved_address:data.resolved_address,lat:data.lat,lon:data.lon,title:$("title").value,subtitle:$("subtitle").value,map_size_mm:size,radius_m:radius,building_count:buildingPolys.length,road_segment_count:roadSegs.length,preview_mode:$("previewMode").value,marker:$("markerType").value,created_at:new Date().toISOString()};
+    currentInfo={version:"9.0-real-print",address,resolved_address:data.resolved_address,lat:data.lat,lon:data.lon,title:$("title").value,subtitle:$("subtitle").value,map_size_mm:size,radius_m:radius,building_count:buildingPolys.length,road_segment_count:roadSegs.length,preview_mode:$("previewMode").value,marker:$("markerType").value,created_at:new Date().toISOString()};
     drawPro(buildingPolys,roadSegs,size,marker,base,roadW,roadH);
     $("mBuildings").textContent=buildingPolys.length;$("mRoads").textContent=roadSegs.length;$("mRadius").textContent=radius+"m";$("mMode").textContent=$("previewMode").value;
     $("download").disabled=false;$("downloadInfo").disabled=false;progress(100);addHistory(currentInfo);
     log("Ready ✅\n"+data.resolved_address+"\n\nReal Print Preview ready ✅\nجرّ الخريطة بصبعك باش تشوفها من أي زاوية.");
   }catch(e){console.error(e);progress(0);log("Error ❌\n"+e.message)}
 };
-$("download").onclick=()=>currentSTL&&download(slug($("title").value)+"-memory-map-v8.stl",currentSTL,"model/stl");
-$("downloadInfo").onclick=()=>currentInfo&&download(slug($("title").value)+"-order-v8.json",JSON.stringify(currentInfo,null,2),"application/json");
+$("download").onclick=()=>currentSTL&&download(slug($("title").value)+"-memory-map-v9.stl",currentSTL,"model/stl");
+$("downloadInfo").onclick=()=>currentInfo&&download(slug($("title").value)+"-order-v9.json",JSON.stringify(currentInfo,null,2),"application/json");
 
 restoreForm();renderHistory();
 if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{})}
