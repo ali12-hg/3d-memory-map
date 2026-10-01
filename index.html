@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111111">
 <link rel="manifest" href="/manifest.webmanifest">
-<title>MemoryMap Studio V11 Framed Realistic</title>
+<title>MemoryMap Studio V11.1 Framed Interactive</title>
 <style>
 :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark}
 *{box-sizing:border-box}
@@ -33,7 +33,7 @@ button:disabled{opacity:.42}
 .progress{height:8px;background:#24242a;border-radius:999px;overflow:hidden;margin-top:12px}
 .progress>div{height:100%;width:0;background:#f4f4f4;transition:width .25s}
 canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
-#printPreview3d{width:100%;aspect-ratio:1/1;max-height:720px;background:linear-gradient(#f6f6f6,#e9e9e9);border-radius:16px;overflow:hidden;touch-action:none}
+#printPreview3d{width:100%;aspect-ratio:1/1;max-height:720px;touch-action:none;background:linear-gradient(#f6f6f6,#e9e9e9);border-radius:16px;overflow:hidden;touch-action:none}
 #printPreview3d canvas{width:100%!important;height:100%!important;display:block;background:transparent;border-radius:16px}
 #status{white-space:pre-wrap;background:#0b0b0e;border-radius:14px;padding:13px;min-height:92px;color:#d7d7da;font-size:14px}
 .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
@@ -50,7 +50,7 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 <body>
 <div class="wrap">
   <div class="hero">
-    <div class="eyebrow">MemoryMap Studio • V11 Framed Realistic</div>
+    <div class="eyebrow">MemoryMap Studio • V11.1 Framed Interactive</div>
     <h1>Turn a place into a 3D memory.</h1>
     <p>Square framed relief, fixed geographic scale, conservative real-world building heights and cleaner city detail.</p>
   </div>
@@ -100,7 +100,7 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
       <div>
         <label>Preview mode</label>
         <select id="previewMode">
-          <option value="framed" selected>Framed Print</option>
+          <option value="framed" selected>Framed Interactive 3D</option>
           <option value="top">Technical Top View</option>
         </select>
       </div>
@@ -134,7 +134,11 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
     <div class="section-title">Preview</div>
     <div id="printPreview3d"></div>
     <canvas id="preview" width="900" height="760" style="display:none"></canvas>
-    <p class="small">Framed Print Preview: square composition, black frame, subtle roads and building heights scaled from real-world height data when available.</p>
+    <div class="row" style="margin-top:10px">
+      <button class="secondary" id="viewTop" type="button">Top view</button>
+      <button class="secondary" id="viewAngle" type="button">3D angle</button>
+    </div>
+    <p class="small">Interactive framed preview: drag to rotate/tilt, mouse wheel or pinch to zoom. “Top view” returns to the flat framed composition; “3D angle” shows building heights clearly.</p>
   </div>
 
   <div class="card">
@@ -266,9 +270,78 @@ function renderReal3D(buildings,roads,size,marker,baseH,roadW,roadH){
 
   const view=size*1.18;
   printCamera=new THREE.OrthographicCamera(-view/2,view/2,view/2,-view/2,0.1,2000);
-  printCamera.position.set(size*.08,-size*.10,size*1.75);
-  printCamera.up.set(0,1,0);
-  printCamera.lookAt(0,0,0);
+  printCamera.up.set(0,0,1);
+
+  const target=new THREE.Vector3(0,0,baseH+2.5);
+  let yaw=-0.72;
+  let pitch=0.72; // angle from vertical; enough tilt to read heights
+  let distance=size*1.45;
+  let zoomLevel=1.0;
+
+  function updateCamera(){
+    pitch=Math.max(0.08,Math.min(1.38,pitch));
+    zoomLevel=Math.max(.65,Math.min(2.8,zoomLevel));
+    printCamera.position.set(
+      target.x + distance*Math.sin(pitch)*Math.cos(yaw),
+      target.y + distance*Math.sin(pitch)*Math.sin(yaw),
+      target.z + distance*Math.cos(pitch)
+    );
+    printCamera.lookAt(target);
+    printCamera.zoom=zoomLevel;
+    printCamera.updateProjectionMatrix();
+  }
+  updateCamera();
+
+  const el=printRenderer.domElement;
+  let dragging=false,lastX=0,lastY=0,lastPinch=null;
+
+  el.addEventListener("pointerdown",e=>{
+    dragging=true;lastX=e.clientX;lastY=e.clientY;el.setPointerCapture?.(e.pointerId);
+  });
+  el.addEventListener("pointermove",e=>{
+    if(!dragging)return;
+    const dx=e.clientX-lastX,dy=e.clientY-lastY;
+    lastX=e.clientX;lastY=e.clientY;
+    yaw-=dx*.008;
+    pitch+=dy*.008;
+    updateCamera();
+  });
+  el.addEventListener("pointerup",e=>{dragging=false;el.releasePointerCapture?.(e.pointerId)});
+  el.addEventListener("pointercancel",()=>dragging=false);
+  el.addEventListener("wheel",e=>{
+    e.preventDefault();
+    zoomLevel*=Math.exp(-e.deltaY*.0012);
+    updateCamera();
+  },{passive:false});
+  el.addEventListener("touchstart",e=>{
+    if(e.touches.length===2){
+      const a=e.touches[0],b=e.touches[1];
+      lastPinch=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+    }
+  },{passive:true});
+  el.addEventListener("touchmove",e=>{
+    if(e.touches.length===2){
+      e.preventDefault();
+      const a=e.touches[0],b=e.touches[1];
+      const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+      if(lastPinch){zoomLevel*=d/lastPinch;updateCamera()}
+      lastPinch=d;
+    }
+  },{passive:false});
+  el.addEventListener("touchend",()=>{lastPinch=null},{passive:true});
+
+  $("viewTop").onclick=()=>{
+    yaw=-Math.PI/2;
+    pitch=0.08;
+    zoomLevel=1.0;
+    updateCamera();
+  };
+  $("viewAngle").onclick=()=>{
+    yaw=-0.72;
+    pitch=0.72;
+    zoomLevel=1.12;
+    updateCamera();
+  };
 
   const hemi=new THREE.HemisphereLight(0xffffff,0x777777,1.45);printScene.add(hemi);
   const key=new THREE.DirectionalLight(0xffffff,3.0);
@@ -401,7 +474,7 @@ $("generate").onclick=async()=>{
 
     currentSTL=stl;
     currentInfo={
-      version:"11.0-framed-realistic",
+      version:"11.1-framed-interactive",
       engine:data.engine,
       address,resolved_address:data.resolved_address,lat:data.lat,lon:data.lon,
       title:$("title").value,subtitle:$("subtitle").value,
@@ -415,7 +488,7 @@ $("generate").onclick=async()=>{
     $("mBuildings").textContent=buildingPolys.length;
     $("mRoads").textContent=roadSegs.length;
     $("mRadius").textContent=radius+"m";
-    $("mMode").textContent="framed";
+    $("mMode").textContent="interactive 3D";
     $("download").disabled=false;$("downloadInfo").disabled=false;
     progress(100);addHistory(currentInfo);
     log("Ready ✅\n"+data.resolved_address+"\n\nFixed geographic scale + conservative building heights + framed square preview.");
