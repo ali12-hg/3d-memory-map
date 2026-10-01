@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111111">
 <link rel="manifest" href="/manifest.webmanifest">
-<title>MemoryMap Studio V10 City Wide</title>
+<title>MemoryMap Studio V11 Framed Realistic</title>
 <style>
 :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark}
 *{box-sizing:border-box}
@@ -33,10 +33,10 @@ button:disabled{opacity:.42}
 .progress{height:8px;background:#24242a;border-radius:999px;overflow:hidden;margin-top:12px}
 .progress>div{height:100%;width:0;background:#f4f4f4;transition:width .25s}
 canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
-#printPreview3d{width:100%;height:560px;background:linear-gradient(#f6f6f6,#e9e9e9);border-radius:16px;overflow:hidden;touch-action:none}
+#printPreview3d{width:100%;aspect-ratio:1/1;max-height:720px;background:linear-gradient(#f6f6f6,#e9e9e9);border-radius:16px;overflow:hidden;touch-action:none}
 #printPreview3d canvas{width:100%!important;height:100%!important;display:block;background:transparent;border-radius:16px}
 #status{white-space:pre-wrap;background:#0b0b0e;border-radius:14px;padding:13px;min-height:92px;color:#d7d7da;font-size:14px}
-.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
 .metric{background:#111116;border:1px solid #303036;border-radius:14px;padding:10px}
 .metric b{display:block;font-size:18px}.metric span{font-size:11px;color:#96969e}
 .history{display:grid;gap:8px}
@@ -50,9 +50,9 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 <body>
 <div class="wrap">
   <div class="hero">
-    <div class="eyebrow">MemoryMap Studio • V10 City Wide</div>
+    <div class="eyebrow">MemoryMap Studio • V11 Framed Realistic</div>
     <h1>Turn a place into a 3D memory.</h1>
-    <p>Pro 3D preview, white buildings, black roads, premium presets and printable STL export.</p>
+    <p>Square framed relief, fixed geographic scale, conservative real-world building heights and cleaner city detail.</p>
   </div>
 
   <div class="card">
@@ -90,18 +90,18 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
     </div>
     <div class="row">
       <div><label>Base (mm)</label><input id="base" type="number" step="0.1" value="3.2"></div>
-      <div><label>Max building (mm)</label><input id="maxh" type="number" step="0.1" value="15"></div>
+      <div><label>Max building (mm)</label><input id="maxh" type="number" step="0.1" value="16"></div>
     </div>
     <div class="row">
-      <div><label>Road width (mm)</label><input id="roadw" type="number" step="0.1" value="0.45"></div>
-      <div><label>Road height (mm)</label><input id="roadh" type="number" step="0.1" value="0.28"></div>
+      <div><label>Road width (mm)</label><input id="roadw" type="number" step="0.1" value="0.32"></div>
+      <div><label>Road height (mm)</label><input id="roadh" type="number" step="0.1" value="0.16"></div>
     </div>
     <div class="row">
       <div>
         <label>Preview mode</label>
         <select id="previewMode">
-          <option value="real3d" selected>Real Print 3D</option>
-          <option value="top">Top-down technical</option>
+          <option value="framed" selected>Framed Print</option>
+          <option value="top">Technical Top View</option>
         </select>
       </div>
       <div>
@@ -117,7 +117,7 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 
   <div class="card">
     <div class="section-title">3. Generate</div>
-    <button class="primary" id="generate">Generate V8 Pro Max</button>
+    <button class="primary" id="generate">Generate V11 Framed Map</button>
     <div class="progress"><div id="progressBar"></div></div>
     <div id="status">Ready.</div>
     <div class="metrics">
@@ -134,7 +134,7 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
     <div class="section-title">Preview</div>
     <div id="printPreview3d"></div>
     <canvas id="preview" width="900" height="760" style="display:none"></canvas>
-    <p class="small">Real Print Preview: نفس geometry ديال STL، مع simulation ديال white PLA buildings/base و black PLA roads. جرّ الخريطة بصبعك باش تدورها و zoom بجوج صبيعات.</p>
+    <p class="small">Framed Print Preview: square composition, black frame, subtle roads and building heights scaled from real-world height data when available.</p>
   </div>
 
   <div class="card">
@@ -147,17 +147,17 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 const $=id=>document.getElementById(id);
 let currentSTL="",currentInfo=null;
 let printRenderer=null,printScene=null,printCamera=null;
-const storeKey="memorymap_v10_history";
+const storeKey="memorymap_v11_history";
 
 function log(s){$("status").textContent=s}
 function progress(n){$("progressBar").style.width=n+"%"}
 function setServer(ok,text){$("serverDot").className="dot "+(ok?"ok":"bad");$("serverText").textContent=text}
 function saveForm(){
   const ids=["address","title","subtitle","size","radius","base","maxh","roadw","roadh","previewMode","markerType"];
-  const o={}; ids.forEach(id=>o[id]=$(id).value); localStorage.setItem("memorymap_v10_form",JSON.stringify(o));
+  const o={}; ids.forEach(id=>o[id]=$(id).value); localStorage.setItem("memorymap_v11_form",JSON.stringify(o));
 }
 function restoreForm(){
-  try{const o=JSON.parse(localStorage.getItem("memorymap_v10_form")||"{}");Object.keys(o).forEach(k=>{if($(k))$(k).value=o[k]})}catch{}
+  try{const o=JSON.parse(localStorage.getItem("memorymap_v11_form")||"{}");Object.keys(o).forEach(k=>{if($(k))$(k).value=o[k]})}catch{}
 }
 ["address","title","subtitle","size","radius","base","maxh","roadw","roadh","previewMode","markerType"].forEach(id=>$(id).addEventListener("change",saveForm));
 
@@ -169,10 +169,10 @@ document.querySelectorAll("#occasionPills .pill").forEach(b=>b.onclick=()=>{
 });
 
 const presets={
- contrast:{radius:1000,maxh:15,roadw:.45,roadh:.28},
- clean:{radius:800,maxh:13,roadw:.42,roadh:.25},
- detailed:{radius:650,maxh:17,roadw:.40,roadh:.24},
- mini:{radius:1200,maxh:14,roadw:.48,roadh:.28}
+ contrast:{radius:1000,maxh:16,roadw:.32,roadh:.16},
+ clean:{radius:850,maxh:14,roadw:.28,roadh:.14},
+ detailed:{radius:700,maxh:17,roadw:.30,roadh:.15},
+ mini:{radius:1200,maxh:15,roadw:.34,roadh:.16}
 };
 document.querySelectorAll("#stylePills .pill").forEach(b=>b.onclick=()=>{
   document.querySelectorAll("#stylePills .pill").forEach(x=>x.classList.remove("active"));b.classList.add("active");
@@ -207,6 +207,22 @@ function starPoly(cx,cy,r,n=10){const pts=[];for(let i=0;i<n;i++){const a=-Math.
 function pinPoly(cx,cy,r,n=24){const pts=[];for(let i=0;i<n;i++){const a=Math.PI+(Math.PI*i/(n-1));pts.push([cx+Math.cos(a)*r,cy+Math.sin(a)*r*.95+r*.3])}pts.push([cx,cy-r*1.55]);return pts}
 function markerPoly(type,cx,cy,r){if(type==="star")return starPoly(cx,cy,r);if(type==="pin")return pinPoly(cx,cy,r);return heartPoly(cx,cy,r)}
 function roadPoly(a,b,w){const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1e-6)return null;const nx=-dy/L*w/2,ny=dx/L*w/2;return[[a[0]+nx,a[1]+ny],[b[0]+nx,b[1]+ny],[b[0]-nx,b[1]-ny],[a[0]-nx,a[1]-ny]]}
+function centroid(poly){let x=0,y=0;for(const p of poly){x+=p[0];y+=p[1]}return [x/poly.length,y/poly.length]}
+function clipSegmentToSquare(a,b,half){
+  let x0=a[0],y0=a[1],x1=b[0],y1=b[1],dx=x1-x0,dy=y1-y0,t0=0,t1=1;
+  const p=[-dx,dx,-dy,dy],q=[x0+half,half-x0,y0+half,half-y0];
+  for(let i=0;i<4;i++){
+    if(Math.abs(p[i])<1e-9){if(q[i]<0)return null;continue}
+    const r=q[i]/p[i];
+    if(p[i]<0){if(r>t1)return null;if(r>t0)t0=r}
+    else{if(r<t0)return null;if(r<t1)t1=r}
+  }
+  return [[x0+t0*dx,y0+t0*dy],[x0+t1*dx,y0+t1*dy]];
+}
+function addFrameSTL(size,base,frameW,frameH){
+  const h=size/2,w=frameW,z0=base,z1=base+frameH;
+  return box(-h,-h,z0,h,-h+w,z1)+box(-h,h-w,z0,h,h,z1)+box(-h,-h+w,z0,-h+w,h-w,z1)+box(h-w,-h+w,z0,h,h-w,z1);
+}
 function draw(buildings,roads,size,heart){const c=$("preview"),ctx=c.getContext("2d"),pad=24,sc=(c.width-2*pad)/size;ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle="#f8f8f8";ctx.fillRect(0,0,c.width,c.height);ctx.strokeStyle="#c5c5c8";ctx.lineWidth=1.15;for(const s of roads){ctx.beginPath();ctx.moveTo(pad+(s[0][0]+size/2)*sc,c.height-(pad+(s[0][1]+size/2)*sc));ctx.lineTo(pad+(s[1][0]+size/2)*sc,c.height-(pad+(s[1][1]+size/2)*sc));ctx.stroke()}ctx.fillStyle="#1e1e22";for(const item of buildings){const p=item.poly||item;ctx.beginPath();p.forEach((q,i)=>{const x=pad+(q[0]+size/2)*sc,y=c.height-(pad+(q[1]+size/2)*sc);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}ctx.fillStyle="#777";ctx.beginPath();heart.forEach((q,i)=>{const x=pad+(q[0]+size/2)*sc,y=c.height-(pad+(q[1]+size/2)*sc);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill()}
 function clearThreeObject(obj){
   if(!obj)return;
@@ -227,12 +243,18 @@ function shapeFromPoly(poly){
   return s;
 }
 function renderReal3D(buildings,roads,size,marker,baseH,roadW,roadH){
-  if($("previewMode").value==="top"){draw(buildings,roads,size,marker);$("preview").style.display="block";$("printPreview3d").style.display="none";return}
-  $("preview").style.display="none";$("printPreview3d").style.display="block";
+  if($("previewMode").value==="top"){
+    draw(buildings,roads,size,marker);
+    $("preview").style.display="block";
+    $("printPreview3d").style.display="none";
+    return;
+  }
+  $("preview").style.display="none";
+  $("printPreview3d").style.display="block";
   const host=$("printPreview3d");
   if(printRenderer){printRenderer.dispose();host.innerHTML="";clearThreeObject(printScene)}
   printScene=new THREE.Scene();
-  printScene.background=new THREE.Color(0xf2f2f2);
+  printScene.background=new THREE.Color(0x171717);
 
   const w=Math.max(320,host.clientWidth||760),h=Math.max(380,host.clientHeight||560);
   printRenderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
@@ -242,109 +264,66 @@ function renderReal3D(buildings,roads,size,marker,baseH,roadW,roadH){
   printRenderer.shadowMap.type=THREE.PCFSoftShadowMap;
   host.appendChild(printRenderer.domElement);
 
-  printCamera=new THREE.PerspectiveCamera(34,w/h,0.1,2000);
-  printCamera.position.set(size*.78,-size*.92,size*.85);
-  printCamera.up.set(0,0,1);
+  const view=size*1.18;
+  printCamera=new THREE.OrthographicCamera(-view/2,view/2,view/2,-view/2,0.1,2000);
+  printCamera.position.set(size*.08,-size*.10,size*1.75);
+  printCamera.up.set(0,1,0);
+  printCamera.lookAt(0,0,0);
 
-  const target=new THREE.Vector3(0,0,baseH+4);
-  let yaw=-0.82,pitch=0.92,distance=size*1.34;
-  const minDist=size*.55,maxDist=size*2.4;
-  function updateCamera(){
-    pitch=Math.max(0.28,Math.min(1.42,pitch));
-    distance=Math.max(minDist,Math.min(maxDist,distance));
-    printCamera.position.set(
-      target.x + distance*Math.sin(pitch)*Math.cos(yaw),
-      target.y + distance*Math.sin(pitch)*Math.sin(yaw),
-      target.z + distance*Math.cos(pitch)
-    );
-    printCamera.lookAt(target);
-  }
-  updateCamera();
-
-  const el=printRenderer.domElement;
-  let dragging=false,lastX=0,lastY=0,lastPinch=null;
-  el.addEventListener("pointerdown",e=>{
-    dragging=true;lastX=e.clientX;lastY=e.clientY;el.setPointerCapture?.(e.pointerId);
-  });
-  el.addEventListener("pointermove",e=>{
-    if(!dragging)return;
-    const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;
-    yaw-=dx*0.008;pitch-=dy*0.008;updateCamera();
-  });
-  el.addEventListener("pointerup",e=>{dragging=false;el.releasePointerCapture?.(e.pointerId)});
-  el.addEventListener("pointercancel",()=>dragging=false);
-  el.addEventListener("wheel",e=>{e.preventDefault();distance*=Math.exp(e.deltaY*0.001);updateCamera()},{passive:false});
-  el.addEventListener("touchstart",e=>{
-    if(e.touches.length===2){
-      const a=e.touches[0],b=e.touches[1];
-      lastPinch=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
-    }
-  },{passive:true});
-  el.addEventListener("touchmove",e=>{
-    if(e.touches.length===2){
-      e.preventDefault();
-      const a=e.touches[0],b=e.touches[1];
-      const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
-      if(lastPinch){distance*=lastPinch/d;updateCamera()}
-      lastPinch=d;
-    }
-  },{passive:false});
-  el.addEventListener("touchend",()=>{lastPinch=null},{passive:true});
-
-  const hemi=new THREE.HemisphereLight(0xffffff,0x9a9a9a,1.75);
-  printScene.add(hemi);
-  const key=new THREE.DirectionalLight(0xffffff,3.2);
-  key.position.set(size*.55,-size*.7,size*1.25);
-  key.castShadow=true;
-  key.shadow.mapSize.set(2048,2048);
+  const hemi=new THREE.HemisphereLight(0xffffff,0x777777,1.45);printScene.add(hemi);
+  const key=new THREE.DirectionalLight(0xffffff,3.0);
+  key.position.set(-size*.35,-size*.55,size*1.7);
+  key.castShadow=true;key.shadow.mapSize.set(2048,2048);
   key.shadow.camera.left=-size;key.shadow.camera.right=size;key.shadow.camera.top=size;key.shadow.camera.bottom=-size;
   printScene.add(key);
-  const fill=new THREE.DirectionalLight(0xffffff,1.0);fill.position.set(-size*.65,size*.35,size*.55);printScene.add(fill);
+  const fill=new THREE.DirectionalLight(0xffffff,.65);fill.position.set(size*.55,size*.35,size*.8);printScene.add(fill);
 
-  const baseGeo=new THREE.BoxGeometry(size,size,baseH);
-  const baseMat=new THREE.MeshStandardMaterial({color:0xd8d6d1,roughness:.88,metalness:0});
-  const baseMesh=new THREE.Mesh(baseGeo,baseMat);
-  baseMesh.position.z=baseH/2;baseMesh.receiveShadow=true;baseMesh.castShadow=true;
-  printScene.add(baseMesh);
+  const frameW=Math.max(6,size*.035);
+  const baseMat=new THREE.MeshStandardMaterial({color:0xf1f0ed,roughness:.92});
+  const baseMesh=new THREE.Mesh(new THREE.BoxGeometry(size,size,baseH),baseMat);
+  baseMesh.position.z=baseH/2;baseMesh.receiveShadow=true;baseMesh.castShadow=true;printScene.add(baseMesh);
 
-  const whiteTop=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.68,metalness:0});
-  for(const item of buildings){
-    const poly=item.poly||item, bh=item.height||3;
-    if(poly.length<3)continue;
-    const geo=new THREE.ExtrudeGeometry(shapeFromPoly(poly),{depth:bh,bevelEnabled:false,steps:1});
-    const mesh=new THREE.Mesh(geo,whiteTop.clone());
-    mesh.position.z=baseH;
-    mesh.castShadow=true;mesh.receiveShadow=true;
-    printScene.add(mesh);
-    const edgeGeo=new THREE.EdgesGeometry(geo,25);
-    const edge=new THREE.LineSegments(edgeGeo,new THREE.LineBasicMaterial({color:0xa8a6a2}));
-    edge.position.z=baseH+.01;
-    printScene.add(edge);
+  const frameMat=new THREE.MeshStandardMaterial({color:0x121212,roughness:.82});
+  const h2=size/2,fh=baseH+4.2;
+  const bars=[
+    [size,frameW,fh,0,-h2+frameW/2],
+    [size,frameW,fh,0,h2-frameW/2],
+    [frameW,size-2*frameW,fh,-h2+frameW/2,0],
+    [frameW,size-2*frameW,fh,h2-frameW/2,0]
+  ];
+  for(const [bw,bh,bz,bx,by] of bars){
+    const m=new THREE.Mesh(new THREE.BoxGeometry(bw,bh,bz),frameMat);
+    m.position.set(bx,by,bz/2);m.castShadow=true;m.receiveShadow=true;printScene.add(m);
   }
 
-  const blackMat=new THREE.MeshStandardMaterial({color:0x595959,roughness:.9,metalness:0});
+  const buildingMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.78});
+  const edgeMat=new THREE.LineBasicMaterial({color:0xb8b6b2});
+  for(const item of buildings){
+    const poly=item.poly||item,bh=item.height||2;
+    if(poly.length<3)continue;
+    const geo=new THREE.ExtrudeGeometry(shapeFromPoly(poly),{depth:bh,bevelEnabled:false,steps:1});
+    const mesh=new THREE.Mesh(geo,buildingMat.clone());
+    mesh.position.z=baseH;mesh.castShadow=true;mesh.receiveShadow=true;printScene.add(mesh);
+    const edge=new THREE.LineSegments(new THREE.EdgesGeometry(geo,28),edgeMat);
+    edge.position.z=baseH+.01;printScene.add(edge);
+  }
+
+  const roadMat=new THREE.MeshStandardMaterial({color:0xc9c7c2,roughness:.95});
   for(const s of roads){
-    const rp=roadPoly(s[0],s[1],roadW*.68);
+    const rp=roadPoly(s[0],s[1],roadW);
     if(!rp)continue;
     const geo=new THREE.ExtrudeGeometry(shapeFromPoly(rp),{depth:roadH,bevelEnabled:false,steps:1});
-    const mesh=new THREE.Mesh(geo,blackMat);
-    mesh.position.z=baseH+.02;
-    mesh.castShadow=true;mesh.receiveShadow=true;
-    printScene.add(mesh);
+    const mesh=new THREE.Mesh(geo,roadMat);
+    mesh.position.z=baseH+.01;mesh.receiveShadow=true;printScene.add(mesh);
   }
 
   if(marker&&marker.length>=3){
-    const markGeo=new THREE.ExtrudeGeometry(shapeFromPoly(marker),{depth:2.8,bevelEnabled:false,steps:1});
-    const markMat=new THREE.MeshStandardMaterial({color:0x45454a,roughness:.55});
-    const markMesh=new THREE.Mesh(markGeo,markMat);
-    markMesh.position.z=baseH+.05;markMesh.castShadow=true;
-    printScene.add(markMesh);
+    const markGeo=new THREE.ExtrudeGeometry(shapeFromPoly(marker),{depth:1.8,bevelEnabled:false,steps:1});
+    const markMesh=new THREE.Mesh(markGeo,new THREE.MeshStandardMaterial({color:0x6d6d72,roughness:.7}));
+    markMesh.position.z=baseH+.02;markMesh.castShadow=true;printScene.add(markMesh);
   }
 
-  const ground=new THREE.Mesh(
-    new THREE.PlaneGeometry(size*2.8,size*2.8),
-    new THREE.ShadowMaterial({color:0x000000,opacity:.14})
-  );
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(size*2.5,size*2.5),new THREE.ShadowMaterial({color:0x000000,opacity:.24}));
   ground.position.z=-.08;ground.receiveShadow=true;printScene.add(ground);
 
   function animate(){if(!printRenderer)return;requestAnimationFrame(animate);printRenderer.render(printScene,printCamera)}
@@ -361,34 +340,94 @@ function renderHistory(){let arr=[];try{arr=JSON.parse(localStorage.getItem(stor
 $("generate").onclick=async()=>{
   try{
     $("download").disabled=true;$("downloadInfo").disabled=true;progress(8);saveForm();
-    const address=$("address").value.trim(),size=+$("size").value||180,radius=+$("radius").value||1000,base=+$("base").value||3.2,maxh=+$("maxh").value||15,roadW=+$("roadw").value||.45,roadH=+$("roadh").value||.28;
-    if(!address)throw new Error("Enter an address first."); log("Finding the place and loading map data…");progress(20);
-    const data=await callAPI({action:"map",address,radius});progress(48);
-    if(!data.buildings||!data.buildings.length)throw new Error("No buildings found. Try a larger radius.");
-    log("Building printable geometry…");
-    const all=[];data.buildings.forEach(b=>all.push(...b.pts));data.roads.forEach(r=>all.push(...r.pts));
-    const xs=all.map(p=>p[0]),ys=all.map(p=>p[1]),minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys),cx=(minx+maxx)/2,cy=(miny+maxy)/2,w=maxx-minx||1,h=maxy-miny||1,sc=Math.min((size-16)/w,(size-16)/h);
-    let stl="solid memory_map\n"+box(-size/2,-size/2,0,size/2,size/2,base),buildingPolys=[],roadSegs=[];progress(62);
-    for(const b of data.buildings){const p=b.pts.map(([x,y])=>[(x-cx)*sc,(y-cy)*sc]);if(Math.abs(area(p))<.2)continue;const realH=Math.max(4,Number(b.hm)||12);
-      const footprint=Math.abs(area(p));
-      const bh=Math.max(1.6,Math.min(maxh,1.4+Math.pow(realH,0.78)*0.72+Math.min(2.0,Math.sqrt(Math.max(footprint,1))/16)+(b.part?0.45:0)));
-      stl+=prism(p,base,base+bh);buildingPolys.push({poly:p,height:bh})}
-    progress(74);
-    for(const r of data.roads){const p=r.pts.map(([x,y])=>[(x-cx)*sc,(y-cy)*sc]);for(let i=0;i<p.length-1;i++){const rp=roadPoly(p[i],p[i+1],roadW);if(!rp)continue;stl+=prism(rp,base,base+roadH);roadSegs.push([p[i],p[i+1]])}}
-    const mx=(0-cx)*sc,my=(0-cy)*sc,marker=markerPoly($("markerType").value,mx,my,6.2);stl+=prism(marker,base,base+2.8)+"endsolid memory_map_v8\n";progress(92);
+    const address=$("address").value.trim(),size=+$("size").value||220,radius=+$("radius").value||1000,base=+$("base").value||3.2,maxh=+$("maxh").value||16,roadW=+$("roadw").value||.32,roadH=+$("roadh").value||.16;
+    if(!address)throw new Error("Enter an address first.");
+    log("Loading real map footprints and building-height data…");progress(18);
+
+    const data=await callAPI({action:"map",address,radius});progress(44);
+    if(!data.buildings||!data.buildings.length)throw new Error("No buildings found for this area.");
+
+    // Fixed geographic scale: the requested radius always maps to the same square.
+    const frameW=Math.max(6,size*.035),innerHalf=size/2-frameW-3;
+    const mmPerMeter=innerHalf/radius;
+    const verticalExaggeration=1.25;
+
+    let stl="solid memory_map_v11\n"+box(-size/2,-size/2,0,size/2,size/2,base);
+    stl+=addFrameSTL(size,base,frameW,4.2);
+
+    const buildingPolys=[],roadSegs=[];
+    progress(58);
+
+    for(const b of data.buildings){
+      const meters=b.pts;
+      if(!meters||meters.length<3)continue;
+      const c0=centroid(meters);
+      // Keep complete buildings within the square. This avoids distorted/clamped footprints.
+      if(Math.abs(c0[0])>radius*.96||Math.abs(c0[1])>radius*.96)continue;
+      if(meters.some(([x,y])=>Math.abs(x)>radius*.985||Math.abs(y)>radius*.985))continue;
+
+      const p=meters.map(([x,y])=>[x*mmPerMeter,y*mmPerMeter]);
+      if(Math.abs(area(p))<.06)continue;
+
+      const realH=Math.max(2.8,Number(b.hm)||8);
+      // Same horizontal scale for every map. Heights keep their real proportions,
+      // with only a small vertical exaggeration so relief remains printable.
+      let bh=realH*mmPerMeter*verticalExaggeration;
+      bh=Math.max(.65,Math.min(maxh,bh));
+      if(b.height_source==="inferred") bh=Math.min(bh,4.8);
+
+      stl+=prism(p,base,base+bh);
+      buildingPolys.push({poly:p,height:bh,realHeight:realH,heightSource:b.height_source||"unknown"});
+    }
+
+    progress(73);
+    for(const r of data.roads){
+      const pts=r.pts||[];
+      for(let i=0;i<pts.length-1;i++){
+        const clipped=clipSegmentToSquare(pts[i],pts[i+1],radius*.985);
+        if(!clipped)continue;
+        const a=[clipped[0][0]*mmPerMeter,clipped[0][1]*mmPerMeter];
+        const b=[clipped[1][0]*mmPerMeter,clipped[1][1]*mmPerMeter];
+        const rp=roadPoly(a,b,roadW);
+        if(!rp)continue;
+        stl+=prism(rp,base,base+roadH);
+        roadSegs.push([a,b]);
+      }
+    }
+
+    const marker=markerPoly($("markerType").value,0,0,3.4);
+    stl+=prism(marker,base,base+1.8)+"endsolid memory_map_v11\n";
+    progress(92);
+
     currentSTL=stl;
-    currentInfo={version:"10.0-city-wide",address,resolved_address:data.resolved_address,lat:data.lat,lon:data.lon,title:$("title").value,subtitle:$("subtitle").value,map_size_mm:size,radius_m:radius,building_count:buildingPolys.length,road_segment_count:roadSegs.length,preview_mode:$("previewMode").value,marker:$("markerType").value,created_at:new Date().toISOString()};
+    currentInfo={
+      version:"11.0-framed-realistic",
+      engine:data.engine,
+      address,resolved_address:data.resolved_address,lat:data.lat,lon:data.lon,
+      title:$("title").value,subtitle:$("subtitle").value,
+      map_size_mm:size,radius_m:radius,mm_per_meter:mmPerMeter,
+      building_count:buildingPolys.length,road_segment_count:roadSegs.length,
+      preview_mode:$("previewMode").value,marker:$("markerType").value,
+      created_at:new Date().toISOString()
+    };
+
     drawPro(buildingPolys,roadSegs,size,marker,base,roadW,roadH);
-    $("mBuildings").textContent=buildingPolys.length;$("mRoads").textContent=roadSegs.length;$("mRadius").textContent=radius+"m";$("mMode").textContent=$("previewMode").value;
-    $("download").disabled=false;$("downloadInfo").disabled=false;progress(100);addHistory(currentInfo);
-    log("Ready ✅\n"+data.resolved_address+"\n\nLarge-area city map generated with stronger building-height variation.");
-  }catch(e){console.error(e);progress(0);log("Error ❌\n"+e.message)}
+    $("mBuildings").textContent=buildingPolys.length;
+    $("mRoads").textContent=roadSegs.length;
+    $("mRadius").textContent=radius+"m";
+    $("mMode").textContent="framed";
+    $("download").disabled=false;$("downloadInfo").disabled=false;
+    progress(100);addHistory(currentInfo);
+    log("Ready ✅\n"+data.resolved_address+"\n\nFixed geographic scale + conservative building heights + framed square preview.");
+  }catch(e){
+    console.error(e);progress(0);log("Error ❌\n"+e.message);
+  }
 };
-$("download").onclick=()=>currentSTL&&download(slug($("title").value)+"-memory-map-v10.stl",currentSTL,"model/stl");
-$("downloadInfo").onclick=()=>currentInfo&&download(slug($("title").value)+"-order-v10.json",JSON.stringify(currentInfo,null,2),"application/json");
+$("download").onclick=()=>currentSTL&&download(slug($("title").value)+"-memory-map-v11.stl",currentSTL,"model/stl");
+$("downloadInfo").onclick=()=>currentInfo&&download(slug($("title").value)+"-order-v11.json",JSON.stringify(currentInfo,null,2),"application/json");
 
 restoreForm();renderHistory();
-if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js?v=9").catch(()=>{})}
+if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js?v=11").catch(()=>{})}
 </script>
 </body>
 </html>
