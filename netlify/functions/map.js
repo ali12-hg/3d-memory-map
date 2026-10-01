@@ -1,4 +1,4 @@
-const UA = "MemoryMapV10/1.0";
+const UA = "MemoryMapV11/1.0";
 
 async function fetchJson(url, options = {}, timeoutMs = 30000) {
   const ctrl = new AbortController();
@@ -26,7 +26,14 @@ async function geocode(address) {
     try {
       const d = await fetchJson(url, {}, 25000);
       if (Array.isArray(d) && d.length) {
-        return { lat: +d[0].lat, lon: +d[0].lon, name: d[0].display_name || address };
+        return {
+          lat: +d[0].lat,
+          lon: +d[0].lon,
+          name: d[0].display_name || address,
+          type: d[0].type || "",
+          category: d[0].category || "",
+          address: d[0].address || {}
+        };
       }
     } catch (e) { last = e; }
   }
@@ -34,9 +41,7 @@ async function geocode(address) {
 }
 
 async function overpass(lat, lon, radius) {
-  // IMPORTANT: include relation-based buildings and building:part.
-  // Many landmarks and complex buildings are multipolygon relations, not a single way.
-  const q = `[out:json][timeout:85];
+  const q = `[out:json][timeout:90];
   (
     way["building"](around:${radius},${lat},${lon});
     relation["building"](around:${radius},${lat},${lon});
@@ -58,7 +63,7 @@ async function overpass(lat, lon, radius) {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body: q
-      }, 90000);
+      }, 95000);
     } catch (e) { last = e; }
   }
   throw last || new Error("All Overpass servers failed");
@@ -71,106 +76,106 @@ function ll2xy(lat, lon, clat, clon) {
   return [(b-d) * Math.cos((a+c)/2) * R, (a-c) * R];
 }
 
-function heightFromTags(tags = {}) {
-  if (tags.height) {
-    const m = String(tags.height).match(/[0-9]+(?:\.[0-9]+)?/);
-    if (m) return +m[0];
-  }
-  if (tags["building:levels"]) {
-    const m = String(tags["building:levels"]).match(/[0-9]+(?:\.[0-9]+)?/);
-    if (m) return +m[0] * 3.2;
-  }
-  if (tags["building:min_level"]) {
-    const m=String(tags["building:min_level"]).match(/[0-9]+(?:\.[0-9]+)?/);
-    if(m) return Math.max(6,(+m[0]+3)*3.2);
-  }
-  if (tags["building:part"]) return 9;
-  const type=String(tags.building||"").toLowerCase();
-  if (["apartments","office","commercial","hotel","hospital","university"].includes(type)) return 18;
-  if (["house","detached","semidetached_house","terrace","bungalow"].includes(type)) return 8.5;
-  if (["church","cathedral","civic","public"].includes(type)) return 16;
-  return 12;
-}
-
 function samePoint(a, b) {
-  if (!a || !b) return false;
-  return Math.abs(a[0]-b[0]) < 1e-7 && Math.abs(a[1]-b[1]) < 1e-7;
+  return !!a && !!b && Math.abs(a[0]-b[0]) < 1e-7 && Math.abs(a[1]-b[1]) < 1e-7;
 }
-
 function geomToLatLon(geometry = []) {
   return geometry
     .filter(p => Number.isFinite(+p.lat) && Number.isFinite(+p.lon))
     .map(p => [+p.lat, +p.lon]);
 }
-
 function cleanClosedRing(pts) {
   if (!pts || pts.length < 3) return null;
   const out = pts.slice();
   if (samePoint(out[0], out[out.length-1])) out.pop();
   return out.length >= 3 ? out : null;
 }
-
 function stitchRings(segments) {
-  const unused = segments
-    .map(s => s.slice())
-    .filter(s => s.length >= 2);
+  const unused = segments.map(s => s.slice()).filter(s => s.length >= 2);
   const rings = [];
-
   while (unused.length) {
     let ring = unused.shift().slice();
-    let changed = true;
-    let guard = 0;
-
-    while (changed && unused.length && guard++ < 5000) {
+    let changed = true, guard = 0;
+    while (changed && unused.length && guard++ < 8000) {
       changed = false;
       const start = ring[0], end = ring[ring.length-1];
-
       for (let i=0;i<unused.length;i++) {
-        const seg = unused[i];
-        const s0 = seg[0], s1 = seg[seg.length-1];
-
-        if (samePoint(end, s0)) {
-          ring.push(...seg.slice(1));
-        } else if (samePoint(end, s1)) {
-          ring.push(...seg.slice(0,-1).reverse());
-        } else if (samePoint(start, s1)) {
-          ring.unshift(...seg.slice(0,-1));
-        } else if (samePoint(start, s0)) {
-          ring.unshift(...seg.slice(1).reverse());
-        } else {
-          continue;
-        }
-        unused.splice(i,1);
-        changed = true;
-        break;
+        const seg = unused[i], s0 = seg[0], s1 = seg[seg.length-1];
+        if (samePoint(end, s0)) ring.push(...seg.slice(1));
+        else if (samePoint(end, s1)) ring.push(...seg.slice(0,-1).reverse());
+        else if (samePoint(start, s1)) ring.unshift(...seg.slice(0,-1));
+        else if (samePoint(start, s0)) ring.unshift(...seg.slice(1).reverse());
+        else continue;
+        unused.splice(i,1); changed = true; break;
       }
     }
-
-    const cleaned = cleanClosedRing(ring);
-    // Accept stitched rings only when they are actually closed before cleaning.
-    if (ring.length >= 4 && samePoint(ring[0], ring[ring.length-1]) && cleaned) {
-      rings.push(cleaned);
+    if (ring.length >= 4 && samePoint(ring[0], ring[ring.length-1])) {
+      const cleaned = cleanClosedRing(ring);
+      if (cleaned) rings.push(cleaned);
     }
   }
   return rings;
 }
 
+function polygonAreaMeters(xy) {
+  let a = 0;
+  for (let i=0;i<xy.length;i++) {
+    const p=xy[i], q=xy[(i+1)%xy.length];
+    a += p[0]*q[1]-q[0]*p[1];
+  }
+  return Math.abs(a)/2;
+}
+
+function parseHeight(tags = {}, footprintArea = 0) {
+  const direct = tags.height && String(tags.height).match(/[0-9]+(?:\.[0-9]+)?/);
+  if (direct) return { height: Math.max(2, +direct[0]), source: "height" };
+
+  const levels = tags["building:levels"] && String(tags["building:levels"]).match(/[0-9]+(?:\.[0-9]+)?/);
+  if (levels) return { height: Math.max(3, +levels[0] * 3.15), source: "levels" };
+
+  const type = String(tags.building || tags["building:part"] || "").toLowerCase();
+  // Conservative fallback: villages should look like villages, not skylines.
+  let h = 8.0;
+  if (["garage","garages","shed","carport","roof"].includes(type)) h = 3.2;
+  else if (["bungalow"].includes(type)) h = 4.5;
+  else if (["house","detached","semidetached_house","terrace","residential"].includes(type)) h = 7.5;
+  else if (["apartments","dormitory"].includes(type)) h = 12.5;
+  else if (["office","commercial","retail","hotel","hospital","university"].includes(type)) h = 14.5;
+  else if (["church","cathedral","mosque","synagogue","civic","public"].includes(type)) h = 13.0;
+  else if (["industrial","warehouse"].includes(type)) h = 7.0;
+
+  // Footprint only nudges the estimate; it never creates skyscrapers.
+  if (footprintArea > 1500) h += 2.0;
+  else if (footprintArea > 700) h += 1.0;
+  else if (footprintArea < 70) h -= 0.8;
+
+  if (tags["building:part"]) h *= 0.92;
+  return { height: Math.max(2.8, Math.min(18, h)), source: "inferred" };
+}
+
 function parseOSM(osm, clat, clon) {
-  const buildings = [];
-  const roads = [];
+  const buildings = [], roads = [];
   const dedupe = new Set();
 
   function pushBuilding(latlonPts, tags = {}, source = "") {
-    const pts = cleanClosedRing(latlonPts);
-    if (!pts) return;
-    const xy = pts.map(([lat,lon]) => ll2xy(lat,lon,clat,clon));
-    const key = xy.slice(0,8).map(p => p.map(v => v.toFixed(2)).join(",")).join("|");
+    const ring = cleanClosedRing(latlonPts);
+    if (!ring) return;
+    const xy = ring.map(([lat,lon]) => ll2xy(lat,lon,clat,clon));
+    const footprintArea = polygonAreaMeters(xy);
+    if (footprintArea < 8) return;
+
+    const key = xy.slice(0,10).map(p => p.map(v => v.toFixed(2)).join(",")).join("|");
     if (dedupe.has(key)) return;
     dedupe.add(key);
+
+    const h = parseHeight(tags, footprintArea);
     buildings.push({
       pts: xy,
-      hm: heightFromTags(tags),
+      hm: h.height,
+      height_source: h.source,
+      building_type: String(tags.building || tags["building:part"] || ""),
       part: !!tags["building:part"],
+      footprint_m2: footprintArea,
       source
     });
   }
@@ -188,7 +193,7 @@ function parseOSM(osm, clat, clon) {
         for (let i=0;i<xy.length-1;i++) {
           len += Math.hypot(xy[i+1][0]-xy[i][0], xy[i+1][1]-xy[i][1]);
         }
-        if (len >= 12) roads.push({ pts: xy, type: e.tags.highway });
+        if (len >= 25) roads.push({ pts: xy, type: e.tags.highway });
       }
       continue;
     }
@@ -196,7 +201,6 @@ function parseOSM(osm, clat, clon) {
     if (e.type === "relation" && e.tags && (e.tags.building || e.tags["building:part"])) {
       const outerSegments = [];
       const innerSegments = [];
-
       for (const m of (e.members || [])) {
         if (m.type !== "way" || !m.geometry) continue;
         const seg = geomToLatLon(m.geometry);
@@ -204,17 +208,15 @@ function parseOSM(osm, clat, clon) {
         if (m.role === "inner") innerSegments.push(seg);
         else outerSegments.push(seg);
       }
-
-      const outerRings = stitchRings(outerSegments);
-      // We currently export the outer shells. Inner holes are retained as metadata
-      // for future boolean subtraction, but the important missing landmark footprint
-      // is no longer discarded.
-      for (const ring of outerRings) {
+      const outers = stitchRings(outerSegments);
+      const inners = stitchRings(innerSegments);
+      for (const ring of outers) {
         pushBuilding(ring, e.tags, "relation");
       }
+      // Inner rings are returned separately for preview/boolean support.
+      // They are not treated as buildings.
     }
   }
-
   return { buildings, roads };
 }
 
@@ -230,7 +232,6 @@ exports.handler = async function(event) {
       body:""
     };
   }
-
   try {
     const body = JSON.parse(event.body || "{}");
 
@@ -238,16 +239,16 @@ exports.handler = async function(event) {
       return {
         statusCode: 200,
         headers: { "Content-Type":"application/json" },
-        body: JSON.stringify({ ok:true, message:"MemoryMap V10 City Wide engine is running." })
+        body: JSON.stringify({ ok:true, message:"MemoryMap V11 realistic engine is running." })
       };
     }
-
     if (body.action !== "map") throw new Error("Invalid action");
 
     const address = String(body.address || "").trim();
     if (!address) throw new Error("Address is required");
 
-    let radius = Number(body.radius || 1000); radius = Math.max(100, Math.min(radius, 1500));
+    let radius = Number(body.radius || 1000);
+    radius = Math.max(100, Math.min(radius, 1500));
 
     const g = await geocode(address);
     const osm = await overpass(g.lat, g.lon, radius);
@@ -255,15 +256,14 @@ exports.handler = async function(event) {
 
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type":"application/json",
-        "Cache-Control":"no-store"
-      },
+      headers: { "Content-Type":"application/json", "Cache-Control":"no-store" },
       body: JSON.stringify({
-        engine: "v10-city-wide",
+        engine: "v11-realistic-framed",
         resolved_address: g.name,
         lat: g.lat,
         lon: g.lon,
+        place_type: g.type,
+        place_category: g.category,
         buildings: parsed.buildings,
         roads: parsed.roads
       })
