@@ -46,7 +46,6 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 @media(max-width:620px){.row{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr 1fr}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -147,7 +146,7 @@ canvas{width:100%;display:block;background:#f8f8f8;border-radius:16px}
 <script>
 const $=id=>document.getElementById(id);
 let currentSTL="",currentInfo=null;
-let printRenderer=null,printScene=null,printCamera=null,printControls=null;
+let printRenderer=null,printScene=null,printCamera=null;
 const storeKey="memorymap_v8_history";
 
 function log(s){$("status").textContent=s}
@@ -247,13 +246,50 @@ function renderReal3D(buildings,roads,size,marker,baseH,roadW,roadH){
   printCamera.position.set(size*.78,-size*.92,size*.85);
   printCamera.up.set(0,0,1);
 
-  printControls=new THREE.OrbitControls(printCamera,printRenderer.domElement);
-  printControls.target.set(0,0,baseH+4);
-  printControls.enableDamping=true;
-  printControls.dampingFactor=.08;
-  printControls.minDistance=size*.55;
-  printControls.maxDistance=size*2.3;
-  printControls.maxPolarAngle=Math.PI*.48;
+  const target=new THREE.Vector3(0,0,baseH+4);
+  let yaw=-0.72,pitch=0.88,distance=size*1.42;
+  const minDist=size*.55,maxDist=size*2.4;
+  function updateCamera(){
+    pitch=Math.max(0.28,Math.min(1.42,pitch));
+    distance=Math.max(minDist,Math.min(maxDist,distance));
+    printCamera.position.set(
+      target.x + distance*Math.sin(pitch)*Math.cos(yaw),
+      target.y + distance*Math.sin(pitch)*Math.sin(yaw),
+      target.z + distance*Math.cos(pitch)
+    );
+    printCamera.lookAt(target);
+  }
+  updateCamera();
+
+  const el=printRenderer.domElement;
+  let dragging=false,lastX=0,lastY=0,lastPinch=null;
+  el.addEventListener("pointerdown",e=>{
+    dragging=true;lastX=e.clientX;lastY=e.clientY;el.setPointerCapture?.(e.pointerId);
+  });
+  el.addEventListener("pointermove",e=>{
+    if(!dragging)return;
+    const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;
+    yaw-=dx*0.008;pitch-=dy*0.008;updateCamera();
+  });
+  el.addEventListener("pointerup",e=>{dragging=false;el.releasePointerCapture?.(e.pointerId)});
+  el.addEventListener("pointercancel",()=>dragging=false);
+  el.addEventListener("wheel",e=>{e.preventDefault();distance*=Math.exp(e.deltaY*0.001);updateCamera()},{passive:false});
+  el.addEventListener("touchstart",e=>{
+    if(e.touches.length===2){
+      const a=e.touches[0],b=e.touches[1];
+      lastPinch=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+    }
+  },{passive:true});
+  el.addEventListener("touchmove",e=>{
+    if(e.touches.length===2){
+      e.preventDefault();
+      const a=e.touches[0],b=e.touches[1];
+      const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+      if(lastPinch){distance*=lastPinch/d;updateCamera()}
+      lastPinch=d;
+    }
+  },{passive:false});
+  el.addEventListener("touchend",()=>{lastPinch=null},{passive:true});
 
   const hemi=new THREE.HemisphereLight(0xffffff,0x9a9a9a,1.75);
   printScene.add(hemi);
@@ -307,7 +343,7 @@ function renderReal3D(buildings,roads,size,marker,baseH,roadW,roadH){
   );
   ground.position.z=-.08;ground.receiveShadow=true;printScene.add(ground);
 
-  function animate(){if(!printRenderer)return;requestAnimationFrame(animate);printControls?.update();printRenderer.render(printScene,printCamera)}
+  function animate(){if(!printRenderer)return;requestAnimationFrame(animate);printRenderer.render(printScene,printCamera)}
   animate();
 }
 function drawPro(buildings,roads,size,marker,baseH,roadW,roadH){
