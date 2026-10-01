@@ -5,5 +5,5 @@
   "display":"standalone",
   "background_color":"#0e0e0e",
   "theme_color":"#111111",
-  "description": "Generate larger city-wide 3D memory maps with stronger building-height variation."
+  "description": "Generate square framed 3D relief maps with fixed geographic scale and realistic building-height proportions."
 }
